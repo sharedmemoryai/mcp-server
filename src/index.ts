@@ -7,8 +7,8 @@ import { SharedMemoryClient } from "./client.js";
 
 // ─── Config from env ────────────────────────────────────
 const API_URL = process.env.SHAREDMEMORY_API_URL || "https://api.sharedmemory.ai";
-const API_KEY = process.env.SHAREDMEMORY_API_KEY || "";
-const DEFAULT_VOLUME = process.env.SHAREDMEMORY_VOLUME_ID || "";
+const API_KEY = process.env.SHAREDMEMORY_API_KEY || "";  // sm_proj_rw_… or sm_agent_…
+const DEFAULT_VOLUME = process.env.SHAREDMEMORY_VOLUME_ID || "";  // project ID
 
 if (!API_KEY) {
   console.error("❌ SHAREDMEMORY_API_KEY is required. Set it in your MCP config.");
@@ -20,7 +20,7 @@ const client = new SharedMemoryClient(API_URL, API_KEY);
 // ─── Create MCP Server ─────────────────────────────────
 const server = new McpServer({
   name: "SharedMemory",
-  version: "1.0.0",
+  version: "2.0.0",
 });
 
 // ─── Helper: resolve volume_id ──────────────────────────
@@ -225,7 +225,7 @@ server.tool(
 // ─── list_volumes ───────────────────────────────────────
 server.tool(
   "list_volumes",
-  "List all memory volumes (spaces) this agent has access to. Each volume is an independent memory space.",
+  "List all memory volumes (projects) this API key has access to. Each volume is an independent memory space.",
   {},
   async () => {
     const volumes = await client.listVolumes();
@@ -234,13 +234,13 @@ server.tool(
       return {
         content: [{
           type: "text" as const,
-          text: "No volumes found. This agent hasn't been connected to any volumes yet.\n" +
-            "Ask the volume owner to connect this agent via the SharedMemory dashboard.",
+          text: "No volumes found. This API key hasn't been connected to any projects yet.\n" +
+            "Ask the project owner to create one in the SharedMemory dashboard.",
         }],
       };
     }
 
-    let text = `## Your Volumes (${volumes.length})\n\n`;
+    let text = `## Your Projects (${volumes.length})\n\n`;
     volumes.forEach((v: any) => {
       text += `• **${v.name}** _(${v.type || "default"})_\n`;
       text += `  ID: \`${v.volume_id}\`\n`;
@@ -248,6 +248,33 @@ server.tool(
     });
 
     return { content: [{ type: "text" as const, text }] };
+  }
+);
+
+// ─── manage_memory ──────────────────────────────────────
+server.tool(
+  "manage_memory",
+  "Delete or update an existing memory by ID.",
+  {
+    action: z.enum(["delete", "update"]).describe("Action to take on the memory"),
+    memory_id: z.string().describe("The UUID of the memory to manage"),
+    volume_id: z.string().optional().describe("Volume (project) ID. Uses default if not set."),
+    content: z.string().optional().describe("New content (only for update action)"),
+  },
+  async ({ action, memory_id, volume_id, content }) => {
+    const vol = resolveVolume(volume_id);
+
+    if (action === "delete") {
+      await client.request("DELETE", `/memory/${memory_id}`, { volume_id: vol });
+      return { content: [{ type: "text" as const, text: `🗑️ Memory ${memory_id} deleted.` }] };
+    }
+
+    if (action === "update" && content) {
+      const result = await client.request("PATCH", `/memory/${memory_id}`, { volume_id: vol, content });
+      return { content: [{ type: "text" as const, text: `✏️ Memory ${memory_id} updated.\n**New content:** ${content}` }] };
+    }
+
+    return { content: [{ type: "text" as const, text: "Invalid action or missing content for update." }] };
   }
 );
 

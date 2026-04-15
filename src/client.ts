@@ -10,7 +10,7 @@ export class SharedMemoryClient {
     this.apiKey = apiKey;
   }
 
-  private async request(method: string, path: string, body?: any): Promise<any> {
+  async request(method: string, path: string, body?: any): Promise<any> {
     const url = `${this.baseUrl}/agent${path}`;
     const res = await fetch(url, {
       method,

@@ -1,6 +1,6 @@
 {
   "name": "@sharedmemory/mcp-server",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "MCP server for SharedMemory — persistent AI memory for any tool",
   "main": "dist/index.js",
   "bin": {
