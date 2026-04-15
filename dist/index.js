@@ -6,7 +6,7 @@ const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const zod_1 = require("zod");
 const client_js_1 = require("./client.js");
 // ─── Config from env ────────────────────────────────────
-const API_URL = process.env.SHAREDMEMORY_API_URL || "http://localhost:5000";
+const API_URL = process.env.SHAREDMEMORY_API_URL || "https://api.sharedmemory.ai";
 const API_KEY = process.env.SHAREDMEMORY_API_KEY || "";
 const DEFAULT_VOLUME = process.env.SHAREDMEMORY_VOLUME_ID || "";
 if (!API_KEY) {
