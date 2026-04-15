@@ -1,12 +1,12 @@
 # @sharedmemory/mcp-server
 
-[Model Context Protocol](https://modelcontextprotocol.io) server for [SharedMemory](https://sharedmemory.ai) — give Claude, Cursor, Windsurf, and VS Code persistent memory.
+[Model Context Protocol](https://modelcontextprotocol.io) server for [SharedMemory](https://sharedmemory.ai). Gives Claude, Cursor, VS Code Copilot, and other MCP-compatible tools persistent memory.
 
 ## Setup
 
 ### Claude Desktop
 
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+`~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
@@ -26,7 +26,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ### Cursor
 
-Add to `.cursor/mcp.json` in your project:
+`.cursor/mcp.json` in your project root:
 
 ```json
 {
@@ -46,7 +46,7 @@ Add to `.cursor/mcp.json` in your project:
 
 ### VS Code Copilot
 
-Add to `.vscode/mcp.json`:
+`.vscode/mcp.json`:
 
 ```json
 {
@@ -64,49 +64,41 @@ Add to `.vscode/mcp.json`:
 }
 ```
 
-## Environment Variables
+## Configuration
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `SHAREDMEMORY_API_KEY` | Yes | Agent API key (`sm_live_...`) |
-| `SHAREDMEMORY_API_URL` | No | API base URL (default: `http://localhost:5000`) |
-| `SHAREDMEMORY_VOLUME_ID` | No | Default volume ID |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `SHAREDMEMORY_API_KEY` | Yes | — | Agent API key |
+| `SHAREDMEMORY_API_URL` | No | `https://api.sharedmemory.ai` | API endpoint |
+| `SHAREDMEMORY_VOLUME_ID` | No | — | Default volume |
 
-## Tools
+## Available tools
 
 | Tool | Description |
 |------|-------------|
-| `remember` | Store a fact or note in memory |
-| `recall` | Search memories by semantic similarity |
-| `get_entity` | Get entity details (facts, relationships) |
+| `remember` | Store a fact or note |
+| `recall` | Semantic search over memories |
+| `get_entity` | Get entity details and relationships |
 | `search_entities` | Search entities by name |
-| `explore_graph` | Overview of the full knowledge graph |
+| `explore_graph` | Knowledge graph overview |
 | `list_volumes` | List accessible volumes |
 
 ## Resources
 
 | URI | Description |
 |-----|-------------|
-| `memory://graph` | Knowledge graph JSON for the default volume |
+| `memory://graph` | Knowledge graph for the default volume |
 
 ## Prompts
 
-| Prompt | Description |
-|--------|-------------|
-| `summarize-knowledge` | Summary of all knowledge in a volume |
-| `what-do-you-know-about` | Everything known about a topic |
+| Name | Description |
+|------|-------------|
+| `summarize-knowledge` | Summarize all knowledge in a volume |
+| `what-do-you-know-about` | Retrieve everything known about a topic |
 
-## Usage
+## Documentation
 
-Once configured, just talk naturally:
-
-> "Remember that our quarterly meeting is March 15th"
-> "What do you know about the React migration?"
-> "Who works on the backend team?"
-
-## Docs
-
-Full documentation: [docs.sharedmemory.ai/sdks/mcp-server](https://docs.sharedmemory.ai/sdks/mcp-server)
+https://docs.sharedmemory.ai/sdks/mcp-server
 
 ## License
 

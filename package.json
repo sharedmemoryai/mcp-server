@@ -6,13 +6,27 @@
   "bin": {
     "sharedmemory-mcp": "dist/index.js"
   },
+  "files": ["dist", "LICENSE", "README.md", "config.example.json"],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js"
   },
-  "keywords": ["mcp", "sharedmemory", "ai", "memory", "knowledge-graph"],
+  "keywords": ["mcp", "sharedmemory", "ai", "memory", "knowledge-graph", "model-context-protocol", "llm"],
+  "author": "SharedMemory AI <akash@sharedmemory.ai> (https://sharedmemory.ai)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sharedmemoryai/mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sharedmemoryai/mcp-server/issues"
+  },
+  "homepage": "https://docs.sharedmemory.ai/sdks/mcp-server",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "zod": "^3.24.4"
