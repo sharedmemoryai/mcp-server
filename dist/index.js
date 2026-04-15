@@ -7,8 +7,8 @@ const zod_1 = require("zod");
 const client_js_1 = require("./client.js");
 // ─── Config from env ────────────────────────────────────
 const API_URL = process.env.SHAREDMEMORY_API_URL || "https://api.sharedmemory.ai";
-const API_KEY = process.env.SHAREDMEMORY_API_KEY || "";
-const DEFAULT_VOLUME = process.env.SHAREDMEMORY_VOLUME_ID || "";
+const API_KEY = process.env.SHAREDMEMORY_API_KEY || ""; // sm_proj_rw_… or sm_agent_…
+const DEFAULT_VOLUME = process.env.SHAREDMEMORY_VOLUME_ID || ""; // project ID
 if (!API_KEY) {
     console.error("❌ SHAREDMEMORY_API_KEY is required. Set it in your MCP config.");
     process.exit(1);
@@ -17,7 +17,7 @@ const client = new client_js_1.SharedMemoryClient(API_URL, API_KEY);
 // ─── Create MCP Server ─────────────────────────────────
 const server = new mcp_js_1.McpServer({
     name: "SharedMemory",
-    version: "1.0.0",
+    version: "2.0.0",
 });
 // ─── Helper: resolve volume_id ──────────────────────────
 function resolveVolume(volumeId) {
@@ -174,24 +174,42 @@ server.tool("explore_graph", "Get an overview of the entire knowledge graph for 
     return { content: [{ type: "text", text }] };
 });
 // ─── list_volumes ───────────────────────────────────────
-server.tool("list_volumes", "List all memory volumes (spaces) this agent has access to. Each volume is an independent memory space.", {}, async () => {
+server.tool("list_volumes", "List all memory volumes (projects) this API key has access to. Each volume is an independent memory space.", {}, async () => {
     const volumes = await client.listVolumes();
     if (volumes.length === 0) {
         return {
             content: [{
                     type: "text",
-                    text: "No volumes found. This agent hasn't been connected to any volumes yet.\n" +
-                        "Ask the volume owner to connect this agent via the SharedMemory dashboard.",
+                    text: "No volumes found. This API key hasn't been connected to any projects yet.\n" +
+                        "Ask the project owner to create one in the SharedMemory dashboard.",
                 }],
         };
     }
-    let text = `## Your Volumes (${volumes.length})\n\n`;
+    let text = `## Your Projects (${volumes.length})\n\n`;
     volumes.forEach((v) => {
         text += `• **${v.name}** _(${v.type || "default"})_\n`;
         text += `  ID: \`${v.volume_id}\`\n`;
         text += `  Permissions: ${(v.permissions || []).join(", ")}\n\n`;
     });
     return { content: [{ type: "text", text }] };
+});
+// ─── manage_memory ──────────────────────────────────────
+server.tool("manage_memory", "Delete or update an existing memory by ID.", {
+    action: zod_1.z.enum(["delete", "update"]).describe("Action to take on the memory"),
+    memory_id: zod_1.z.string().describe("The UUID of the memory to manage"),
+    volume_id: zod_1.z.string().optional().describe("Volume (project) ID. Uses default if not set."),
+    content: zod_1.z.string().optional().describe("New content (only for update action)"),
+}, async ({ action, memory_id, volume_id, content }) => {
+    const vol = resolveVolume(volume_id);
+    if (action === "delete") {
+        await client.request("DELETE", `/memory/${memory_id}`, { volume_id: vol });
+        return { content: [{ type: "text", text: `🗑️ Memory ${memory_id} deleted.` }] };
+    }
+    if (action === "update" && content) {
+        const result = await client.request("PATCH", `/memory/${memory_id}`, { volume_id: vol, content });
+        return { content: [{ type: "text", text: `✏️ Memory ${memory_id} updated.\n**New content:** ${content}` }] };
+    }
+    return { content: [{ type: "text", text: "Invalid action or missing content for update." }] };
 });
 // ═══════════════════════════════════════════════════════
 //  RESOURCES

@@ -5,7 +5,7 @@ export declare class SharedMemoryClient {
     private baseUrl;
     private apiKey;
     constructor(baseUrl: string, apiKey: string);
-    private request;
+    request(method: string, path: string, body?: any): Promise<any>;
     listVolumes(): Promise<any[]>;
     writeMemory(volumeId: string, content: string, memoryType?: string): Promise<any>;
     queryMemory(volumeId: string, query: string, limit?: number): Promise<any>;
