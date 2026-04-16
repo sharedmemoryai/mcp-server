@@ -4,7 +4,7 @@
       "command": "node",
       "args": ["/FULL/PATH/TO/Project_0/mcp-server/dist/index.js"],
       "env": {
-        "SHAREDMEMORY_API_URL": "http://localhost:5000",
+        "SHAREDMEMORY_API_URL": "https://api.sharedmemory.ai",
         "SHAREDMEMORY_API_KEY": "sm_live_YOUR_API_KEY_HERE",
         "SHAREDMEMORY_VOLUME_ID": "YOUR_DEFAULT_VOLUME_ID"
       }
