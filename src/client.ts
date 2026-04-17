@@ -36,7 +36,7 @@ export class SharedMemoryClient {
 
   // ─── Memory ──────────────────────────────────────────
   async writeMemory(volumeId: string, content: string, memoryType?: string): Promise<any> {
-    return this.request("POST", "/memory/write", {
+    return this.request("POST", "/memory/propose", {
       volume_id: volumeId,
       content,
       memory_type: memoryType || "factual",
