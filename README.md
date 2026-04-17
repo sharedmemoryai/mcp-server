@@ -13,7 +13,7 @@
   "mcpServers": {
     "sharedmemory": {
       "command": "npx",
-      "args": ["@sharedmemory/mcp-server"],
+      "args": ["-y", "@sharedmemory/mcp-server"],
       "env": {
         "SHAREDMEMORY_API_KEY": "sm_live_...",
         "SHAREDMEMORY_API_URL": "https://api.sharedmemory.ai",
@@ -33,7 +33,7 @@
   "mcpServers": {
     "sharedmemory": {
       "command": "npx",
-      "args": ["@sharedmemory/mcp-server"],
+      "args": ["-y", "@sharedmemory/mcp-server"],
       "env": {
         "SHAREDMEMORY_API_KEY": "sm_live_...",
         "SHAREDMEMORY_API_URL": "https://api.sharedmemory.ai",
@@ -53,7 +53,7 @@
   "servers": {
     "sharedmemory": {
       "command": "npx",
-      "args": ["@sharedmemory/mcp-server"],
+      "args": ["-y", "@sharedmemory/mcp-server"],
       "env": {
         "SHAREDMEMORY_API_KEY": "sm_live_...",
         "SHAREDMEMORY_API_URL": "https://api.sharedmemory.ai",
@@ -82,6 +82,7 @@
 | `search_entities` | Search entities by name |
 | `explore_graph` | Knowledge graph overview |
 | `list_volumes` | List accessible volumes |
+| `manage_memory` | Update or delete a memory by ID |
 
 ## Resources
 

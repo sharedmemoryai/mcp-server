@@ -1,6 +1,6 @@
 {
   "name": "@sharedmemory/mcp-server",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "MCP server for SharedMemory — persistent AI memory for any tool",
   "main": "dist/index.js",
   "bin": {
@@ -26,6 +26,9 @@
   "homepage": "https://docs.sharedmemory.ai/sdks/mcp-server",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
