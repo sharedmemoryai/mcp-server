@@ -73,4 +73,51 @@ export class SharedMemoryClient {
       limit: limit || 100,
     });
   }
+
+  // ─── Batch Operations ────────────────────────────────
+  async writeBatch(volumeId: string, memories: { content: string; memory_type?: string }[]): Promise<any> {
+    return this.request("POST", "/memory/write/batch", {
+      volume_id: volumeId,
+      memories,
+    });
+  }
+
+  async deleteBatch(volumeId: string, memoryIds: string[]): Promise<any> {
+    return this.request("POST", "/memory/delete/batch", {
+      volume_id: volumeId,
+      memory_ids: memoryIds,
+    });
+  }
+
+  async updateBatch(volumeId: string, updates: { memory_id: string; content: string }[]): Promise<any> {
+    return this.request("POST", "/memory/update/batch", {
+      volume_id: volumeId,
+      updates,
+    });
+  }
+
+  // ─── Profile & Context ────────────────────────────────
+  async getMemory(memoryId: string): Promise<any> {
+    return this.request("GET", `/memory/${memoryId}`);
+  }
+
+  async getProfile(volumeId: string, userId: string): Promise<any> {
+    return this.request("POST", "/memory/profile", {
+      volume_id: volumeId,
+      user_id: userId,
+    });
+  }
+
+  async getContext(volumeId: string, userId?: string, maxTokens?: number): Promise<any> {
+    return this.request("POST", "/memory/context", {
+      volume_id: volumeId,
+      user_id: userId,
+      max_tokens: maxTokens,
+    });
+  }
+
+  // ─── Documents ────────────────────────────────────────
+  async listDocuments(volumeId: string): Promise<any[]> {
+    return this.request("GET", `/documents/${volumeId}`);
+  }
 }

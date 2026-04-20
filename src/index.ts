@@ -20,7 +20,7 @@ const client = new SharedMemoryClient(API_URL, API_KEY);
 // ─── Create MCP Server ─────────────────────────────────
 const server = new McpServer({
   name: "SharedMemory",
-  version: "2.0.0",
+  version: "2.1.0",
 });
 
 // ─── Helper: resolve volume_id ──────────────────────────
@@ -275,6 +275,144 @@ server.tool(
     }
 
     return { content: [{ type: "text" as const, text: "Invalid action or missing content for update." }] };
+  }
+);
+
+// ─── batch_remember ─────────────────────────────────────
+server.tool(
+  "batch_remember",
+  "Store multiple facts or pieces of information at once. More efficient than calling remember() in a loop.",
+  {
+    memories: z.array(z.object({
+      content: z.string().describe("The fact, note, or information to remember"),
+      memory_type: z.enum(["factual", "preference", "event", "relationship", "technical"]).optional()
+        .describe("Type hint for the memory. Default: factual"),
+    })).min(1).max(100).describe("Array of memories to store"),
+    volume_id: z.string().optional().describe("Volume (memory space) ID. Uses default if not set."),
+  },
+  async ({ memories, volume_id }) => {
+    const vol = resolveVolume(volume_id);
+    const result = await client.writeBatch(vol, memories);
+
+    let text = `✅ Batch write complete.\n\n`;
+    text += `**Total:** ${result.total} · **Succeeded:** ${result.succeeded} · **Failed:** ${result.failed}\n`;
+
+    if (result.failed > 0 && result.results) {
+      const failures = result.results.filter((r: any) => r.error);
+      text += "\n**Failures:**\n";
+      failures.forEach((f: any) => {
+        text += `• Item ${f.index}: ${f.error}\n`;
+      });
+    }
+
+    return { content: [{ type: "text" as const, text }] };
+  }
+);
+
+// ─── get_memory ─────────────────────────────────────────
+server.tool(
+  "get_memory",
+  "Retrieve a specific memory by its ID. Useful for viewing the full details of a memory found via recall.",
+  {
+    memory_id: z.string().describe("The UUID of the memory to retrieve"),
+  },
+  async ({ memory_id }) => {
+    const memory = await client.getMemory(memory_id);
+
+    let text = `## Memory ${memory_id}\n\n`;
+    text += `**Content:** ${memory.content}\n`;
+    text += `**Type:** ${memory.memory_type || "factual"}\n`;
+    if (memory.created_at) text += `**Created:** ${memory.created_at}\n`;
+    if (memory.agent) text += `**Agent:** ${memory.agent}\n`;
+    if (memory.metadata) text += `**Metadata:** ${JSON.stringify(memory.metadata)}\n`;
+
+    return { content: [{ type: "text" as const, text }] };
+  }
+);
+
+// ─── get_profile ────────────────────────────────────────
+server.tool(
+  "get_profile",
+  "Get an auto-generated profile for a user based on their stored memories. Returns stable facts, recent activity, relationships, and a summary.",
+  {
+    user_id: z.string().describe("The user ID to generate a profile for"),
+    volume_id: z.string().optional().describe("Volume ID. Uses default if not set."),
+  },
+  async ({ user_id, volume_id }) => {
+    const vol = resolveVolume(volume_id);
+    const profile = await client.getProfile(vol, user_id);
+
+    let text = `## Profile: ${profile.user_id}\n\n`;
+    if (profile.summary) text += `${profile.summary}\n\n`;
+
+    if (profile.static?.length > 0) {
+      text += "**Core Facts:**\n";
+      profile.static.forEach((f: string) => { text += `• ${f}\n`; });
+      text += "\n";
+    }
+
+    if (profile.dynamic?.length > 0) {
+      text += "**Recent Activity:**\n";
+      profile.dynamic.forEach((a: string) => { text += `• ${a}\n`; });
+      text += "\n";
+    }
+
+    if (profile.relationships?.length > 0) {
+      text += "**Relationships:**\n";
+      profile.relationships.forEach((r: any) => {
+        text += `• ${r.type} → ${r.entity}\n`;
+      });
+    }
+
+    return { content: [{ type: "text" as const, text }] };
+  }
+);
+
+// ─── get_context ────────────────────────────────────────
+server.tool(
+  "get_context",
+  "Assemble a smart context block from stored memories. Returns a pre-formatted context string ready to inject into a system prompt.",
+  {
+    volume_id: z.string().optional().describe("Volume ID. Uses default if not set."),
+    user_id: z.string().optional().describe("User ID for personalized context"),
+    max_tokens: z.number().optional().describe("Max tokens for the context block. Default: 2000"),
+  },
+  async ({ volume_id, user_id, max_tokens }) => {
+    const vol = resolveVolume(volume_id);
+    const result = await client.getContext(vol, user_id, max_tokens);
+
+    let text = `## Assembled Context\n\n`;
+    text += `**Token estimate:** ~${result.token_estimate} tokens`;
+    if (result.cached) text += ` (cached)`;
+    text += `\n\n---\n\n${result.context}`;
+
+    return { content: [{ type: "text" as const, text }] };
+  }
+);
+
+// ─── list_documents ─────────────────────────────────────
+server.tool(
+  "list_documents",
+  "List all documents that have been uploaded and processed for a volume.",
+  {
+    volume_id: z.string().optional().describe("Volume ID. Uses default if not set."),
+  },
+  async ({ volume_id }) => {
+    const vol = resolveVolume(volume_id);
+    const docs = await client.listDocuments(vol);
+
+    if (docs.length === 0) {
+      return { content: [{ type: "text" as const, text: "No documents found in this volume." }] };
+    }
+
+    let text = `## Documents (${docs.length})\n\n`;
+    docs.forEach((d: any) => {
+      text += `• **${d.filename}** _(${d.mime_type})_\n`;
+      text += `  ID: \`${d.document_id}\` · ${d.chunk_count} chunks · Status: ${d.status}\n`;
+      text += `  Size: ${(d.file_size / 1024).toFixed(1)} KB · Uploaded: ${d.created_at?.split("T")[0] || ""}\n\n`;
+    });
+
+    return { content: [{ type: "text" as const, text }] };
   }
 );
 
