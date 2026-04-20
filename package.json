@@ -18,10 +18,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Akash-Agarwal-X/mcp-server.git"
+    "url": "https://github.com/sharedmemoryai/mcp-server.git"
   },
   "bugs": {
-    "url": "https://github.com/Akash-Agarwal-X/mcp-server/issues"
+    "url": "https://github.com/sharedmemoryai/mcp-server/issues"
   },
   "homepage": "https://docs.sharedmemory.ai/sdks/mcp-server",
   "engines": {
