@@ -251,8 +251,10 @@ else {
     // ─── get_memory ─────────────────────────────────────────
     server.tool("get_memory", "Retrieve a specific memory by its ID. Useful for viewing the full details of a memory found via recall.", {
         memory_id: zod_1.z.string().describe("The UUID of the memory to retrieve"),
-    }, async ({ memory_id }) => {
-        const memory = await client.getMemory(memory_id);
+        volume_id: zod_1.z.string().optional().describe("Volume ID. Uses default if not set."),
+    }, async ({ memory_id, volume_id }) => {
+        const vol = resolveVolume(volume_id);
+        const memory = await client.getMemory(memory_id, vol);
         let text = `## Memory ${memory_id}\n\n`;
         text += `**Content:** ${memory.content}\n`;
         text += `**Type:** ${memory.memory_type || "factual"}\n`;

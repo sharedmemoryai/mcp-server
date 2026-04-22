@@ -44,6 +44,9 @@ class SharedMemoryClient {
             volume_id: volumeId,
             query,
             limit: limit || 10,
+            // enrich: true adds graph facts but costs an LLM call per query.
+            // Kept off by default for free tier cost savings. Users get graph
+            // facts via get_entity/explore_graph tools instead.
         });
     }
     // ─── Entities & Graph ────────────────────────────────
@@ -86,8 +89,8 @@ class SharedMemoryClient {
         });
     }
     // ─── Profile & Context ────────────────────────────────
-    async getMemory(memoryId) {
-        return this.request("GET", `/memory/${memoryId}`);
+    async getMemory(memoryId, volumeId) {
+        return this.request("GET", `/memory/${memoryId}?volume_id=${encodeURIComponent(volumeId)}`);
     }
     async getProfile(volumeId, userId) {
         return this.request("POST", "/memory/profile", {
