@@ -164,4 +164,16 @@ export class SharedMemoryClient {
   async listDocuments(volumeId: string): Promise<any[]> {
     return this.request("GET", `/documents/${volumeId}`);
   }
+
+  // ─── Instructions ─────────────────────────────────────
+  async listInstructions(volumeId: string): Promise<any[]> {
+    // Use search with filter to get all instructions for a volume
+    const res = await this.request("POST", "/memory/query", {
+      volume_id: volumeId,
+      query: "instructions rules conventions preferences",
+      limit: 50,
+      filters: { memory_type: "instruction" },
+    });
+    return res?.results || [];
+  }
 }

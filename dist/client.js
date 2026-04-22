@@ -157,6 +157,17 @@ class SharedMemoryClient {
     async listDocuments(volumeId) {
         return this.request("GET", `/documents/${volumeId}`);
     }
+    // ─── Instructions ─────────────────────────────────────
+    async listInstructions(volumeId) {
+        // Use search with filter to get all instructions for a volume
+        const res = await this.request("POST", "/memory/query", {
+            volume_id: volumeId,
+            query: "instructions rules conventions preferences",
+            limit: 50,
+            filters: { memory_type: "instruction" },
+        });
+        return res?.results || [];
+    }
 }
 exports.SharedMemoryClient = SharedMemoryClient;
 //# sourceMappingURL=client.js.map

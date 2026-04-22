@@ -40,4 +40,5 @@ export declare class SharedMemoryClient {
     getProfile(volumeId: string, userId: string): Promise<any>;
     getContext(volumeId: string, userId?: string, maxTokens?: number): Promise<any>;
     listDocuments(volumeId: string): Promise<any[]>;
+    listInstructions(volumeId: string): Promise<any[]>;
 }

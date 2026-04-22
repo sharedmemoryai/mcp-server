@@ -35,7 +35,7 @@ const client = new SharedMemoryClient(API_URL, API_KEY);
 // ─── Create MCP Server ─────────────────────────────────
 const server = new McpServer({
   name: "SharedMemory",
-  version: "2.1.3",
+  version: "2.2.1",
 });
 
 // ─── Helper: resolve volume_id ──────────────────────────
@@ -56,8 +56,8 @@ server.tool(
   {
     content: z.string().describe("The fact, note, or information to remember"),
     volume_id: z.string().optional().describe("Volume (memory space) ID. Uses default if not set."),
-    memory_type: z.enum(["factual", "preference", "event", "relationship", "technical", "episodic", "procedural"]).optional()
-      .describe("Type hint for the memory. Default: factual"),
+    memory_type: z.enum(["factual", "preference", "event", "relationship", "technical", "episodic", "procedural", "instruction"]).optional()
+      .describe("Type hint for the memory. Default: factual. Use 'instruction' for rules/conventions all agents should follow."),
     user_id: z.string().optional().describe("Scope this memory to a specific user"),
     session_id: z.string().optional().describe("Scope this memory to a conversation session"),
     agent_id: z.string().optional().describe("Agent that created this memory"),
@@ -310,7 +310,7 @@ server.tool(
   {
     memories: z.array(z.object({
       content: z.string().describe("The fact, note, or information to remember"),
-      memory_type: z.enum(["factual", "preference", "event", "relationship", "technical", "episodic", "procedural"]).optional()
+      memory_type: z.enum(["factual", "preference", "event", "relationship", "technical", "episodic", "procedural", "instruction"]).optional()
         .describe("Type hint for the memory. Default: factual"),
     })).min(1).max(100).describe("Array of memories to store"),
     volume_id: z.string().optional().describe("Volume (memory space) ID. Uses default if not set."),
@@ -450,6 +450,55 @@ server.tool(
       text += `  ID: \`${d.document_id}\` · ${d.chunk_count} chunks · Status: ${d.status}\n`;
       text += `  Size: ${(d.file_size / 1024).toFixed(1)} KB · Uploaded: ${d.created_at?.split("T")[0] || ""}\n\n`;
     });
+
+    return { content: [{ type: "text" as const, text }] };
+  }
+);
+
+// ─── set_instruction ────────────────────────────────────
+server.tool(
+  "set_instruction",
+  "Store a persistent instruction or rule for a volume. Instructions are automatically included in every context assembly — any agent querying this volume will see them. Use for coding conventions, project rules, team preferences, or architectural decisions that all agents should follow.",
+  {
+    content: z.string().describe("The instruction or rule (e.g. 'Always use functional React components with TypeScript')"),
+    volume_id: z.string().optional().describe("Volume ID. Uses default if not set."),
+  },
+  async ({ content, volume_id }) => {
+    const vol = resolveVolume(volume_id);
+    const result = await client.writeMemory(vol, content, "instruction");
+    return {
+      content: [{
+        type: "text" as const,
+        text: `✅ Instruction saved.\n\n` +
+          `**Memory ID:** ${result.memory_id}\n` +
+          `This instruction will be automatically included in context for all agents on this volume.`,
+      }],
+    };
+  }
+);
+
+// ─── list_instructions ──────────────────────────────────
+server.tool(
+  "list_instructions",
+  "List all active instructions/rules for a volume. These are automatically included in every context assembly.",
+  {
+    volume_id: z.string().optional().describe("Volume ID. Uses default if not set."),
+  },
+  async ({ volume_id }) => {
+    const vol = resolveVolume(volume_id);
+    const results = await client.listInstructions(vol);
+
+    if (!results || results.length === 0) {
+      return { content: [{ type: "text" as const, text: "No instructions set for this volume." }] };
+    }
+
+    let text = `## Instructions (${results.length})\n\n`;
+    results.forEach((r: any, i: number) => {
+      const content = r.payload?.content || r.content || "";
+      const id = r.payload?.memory_id || r.memory_id || "";
+      text += `${i + 1}. ${content}\n   _ID: \`${id}\`_\n\n`;
+    });
+    text += `_Use \`manage_memory\` to delete an instruction by ID._`;
 
     return { content: [{ type: "text" as const, text }] };
   }

@@ -3,7 +3,7 @@
  * `npx @sharedmemory/mcp-server install`
  *
  * Writes the MCP server config into the correct JSON file for the chosen client.
- * Supports: Claude Desktop, Cursor, VS Code (Copilot), Windsurf.
+ * Supports: Claude Code, Claude Desktop, Cursor, VS Code (Copilot), Windsurf.
  *
  * Zero external dependencies — all terminal UI uses raw ANSI escape codes.
  */
@@ -155,6 +155,14 @@ interface ClientTarget {
 const home = os.homedir();
 
 const CLIENTS: Record<string, ClientTarget> = {
+  claudecode: {
+    name: "Claude Code",
+    icon: "⬡",
+    configPaths: () => {
+      return [path.join(home, ".claude.json")];
+    },
+    serversKey: "mcpServers",
+  },
   claude: {
     name: "Claude Desktop",
     icon: "◆",
@@ -194,7 +202,7 @@ const CLIENTS: Record<string, ClientTarget> = {
   },
 };
 
-const CLIENT_ORDER = ["cursor", "vscode", "claude", "windsurf"];
+const CLIENT_ORDER = ["claudecode", "cursor", "vscode", "claude", "windsurf"];
 
 // ═══════════════════════════════════════════════════════
 //  HELPERS
@@ -279,7 +287,8 @@ export async function runInstall(argv: string[]): Promise<void> {
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === "--claude") targetKeys.push("claude");
+    if (arg === "--claude-code" || arg === "--claudecode") targetKeys.push("claudecode");
+    else if (arg === "--claude") targetKeys.push("claude");
     else if (arg === "--cursor") targetKeys.push("cursor");
     else if (arg === "--vscode") targetKeys.push("vscode");
     else if (arg === "--windsurf") targetKeys.push("windsurf");
@@ -362,26 +371,28 @@ export async function runInstall(argv: string[]): Promise<void> {
 
     log(`  ${d}${GRAY}Which clients do you want to configure?${r}`);
     log("");
-    log(`   ${CYAN}1${r})  ${CLIENTS.cursor.icon} Cursor`);
-    log(`   ${CYAN}2${r})  ${CLIENTS.vscode.icon} VS Code`);
-    log(`   ${CYAN}3${r})  ${CLIENTS.claude.icon} Claude Desktop`);
-    log(`   ${CYAN}4${r})  ${CLIENTS.windsurf.icon} Windsurf`);
-    log(`   ${CYAN}5${r})  ${b}All of the above${r}`);
+    log(`   ${CYAN}1${r})  ${CLIENTS.claudecode.icon} Claude Code`);
+    log(`   ${CYAN}2${r})  ${CLIENTS.cursor.icon} Cursor`);
+    log(`   ${CYAN}3${r})  ${CLIENTS.vscode.icon} VS Code`);
+    log(`   ${CYAN}4${r})  ${CLIENTS.claude.icon} Claude Desktop`);
+    log(`   ${CYAN}5${r})  ${CLIENTS.windsurf.icon} Windsurf`);
+    log(`   ${CYAN}6${r})  ${b}All of the above${r}`);
     if (detected.length > 0) {
-      log(`   ${CYAN}6${r})  ${b}Detected only${r} ${d}(${detected.map(k => CLIENTS[k].name).join(", ")})${r}`);
+      log(`   ${CYAN}7${r})  ${b}Detected only${r} ${d}(${detected.map(k => CLIENTS[k].name).join(", ")})${r}`);
     }
     log("");
 
-    const maxChoice = detected.length > 0 ? "6" : "5";
+    const maxChoice = detected.length > 0 ? "7" : "6";
     const choice = await ask(`  ${CYAN}${b}?${r} ${WHITE}Choose ${d}(1-${maxChoice})${r}: `);
 
     const map: Record<string, string[]> = {
-      "1": ["cursor"],
-      "2": ["vscode"],
-      "3": ["claude"],
-      "4": ["windsurf"],
-      "5": [...CLIENT_ORDER],
-      "6": detected,
+      "1": ["claudecode"],
+      "2": ["cursor"],
+      "3": ["vscode"],
+      "4": ["claude"],
+      "5": ["windsurf"],
+      "6": [...CLIENT_ORDER],
+      "7": detected,
     };
     targetKeys = map[choice] || [];
     if (targetKeys.length === 0) {
@@ -484,6 +495,7 @@ export function printInstallHelp(): void {
   log(`    ${CYAN}npx @sharedmemory/mcp-server install${r} ${d}[options]${r}`);
   log("");
   log(`  ${b}${WHITE}CLIENTS${r}`);
+  log(`    ${CYAN}--claude-code${r}   Claude Code (CLI)`);
   log(`    ${CYAN}--claude${r}        Claude Desktop`);
   log(`    ${CYAN}--cursor${r}        Cursor`);
   log(`    ${CYAN}--vscode${r}        VS Code (Copilot)`);

@@ -1,6 +1,6 @@
 # @sharedmemory/mcp-server
 
-[Model Context Protocol](https://modelcontextprotocol.io) server for [SharedMemory](https://sharedmemory.ai). Gives Claude, Cursor, VS Code Copilot, and other MCP-compatible tools persistent memory.
+[Model Context Protocol](https://modelcontextprotocol.io) server for [SharedMemory](https://sharedmemory.ai). Gives Claude Code, Claude Desktop, Cursor, VS Code Copilot, and other MCP-compatible tools persistent memory.
 
 ## Quick Install (Recommended)
 
@@ -17,11 +17,47 @@ npx -y @sharedmemory/mcp-server install --cursor --api-key sm_live_... --volume 
 npx -y @sharedmemory/mcp-server install --all --api-key sm_live_...
 ```
 
-Supported clients: `--claude`, `--cursor`, `--vscode`, `--windsurf`, `--all`
+Supported clients: `--claude-code`, `--claude`, `--cursor`, `--vscode`, `--windsurf`, `--all`
 
 ## Manual Setup
 
 If you prefer to edit config files yourself:
+
+### Claude Code
+
+One command:
+
+```bash
+claude mcp add sharedmemory -- npx -y @sharedmemory/mcp-server
+```
+
+Or with env vars:
+
+```bash
+claude mcp add --env SHAREDMEMORY_API_KEY=sm_live_... \
+  --env SHAREDMEMORY_VOLUME_ID=your-volume-id \
+  sharedmemory -- npx -y @sharedmemory/mcp-server
+```
+
+Or create `.mcp.json` in your project root to share with your team:
+
+```json
+{
+  "mcpServers": {
+    "sharedmemory": {
+      "command": "npx",
+      "args": ["-y", "@sharedmemory/mcp-server"],
+      "env": {
+        "SHAREDMEMORY_API_KEY": "${SHAREDMEMORY_API_KEY}",
+        "SHAREDMEMORY_API_URL": "https://api.sharedmemory.ai",
+        "SHAREDMEMORY_VOLUME_ID": "${SHAREDMEMORY_VOLUME_ID}"
+      }
+    }
+  }
+}
+```
+
+> **Tip:** Copy the included [`CLAUDE.md`](./CLAUDE.md) into your project root to teach Claude Code when and how to use SharedMemory proactively.
 
 ### Claude Desktop
 
