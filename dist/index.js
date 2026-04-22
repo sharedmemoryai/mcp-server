@@ -48,7 +48,7 @@ else {
     server.tool("remember", "Store a fact, note, or piece of information in SharedMemory. The memory pipeline will classify it, check for conflicts, extract knowledge, and build the graph automatically.", {
         content: zod_1.z.string().describe("The fact, note, or information to remember"),
         volume_id: zod_1.z.string().optional().describe("Volume (memory space) ID. Uses default if not set."),
-        memory_type: zod_1.z.enum(["factual", "preference", "event", "relationship", "technical"]).optional()
+        memory_type: zod_1.z.enum(["factual", "preference", "event", "relationship", "technical", "episodic", "procedural"]).optional()
             .describe("Type hint for the memory. Default: factual"),
     }, async ({ content, volume_id, memory_type }) => {
         const vol = resolveVolume(volume_id);
@@ -58,7 +58,7 @@ else {
                 {
                     type: "text",
                     text: `✅ Memory stored.\n\n` +
-                        `**Decision:** ${result.decision || "approved"}\n` +
+                        `**Decision:** ${result.status || "approved"}\n` +
                         `**Confidence:** ${result.confidence ?? "N/A"}\n` +
                         (result.reason ? `**Reason:** ${result.reason}\n` : "") +
                         (result.merged_content ? `**Merged with:** ${result.merged_content}\n` : "") +
@@ -230,7 +230,7 @@ else {
     server.tool("batch_remember", "Store multiple facts or pieces of information at once. More efficient than calling remember() in a loop.", {
         memories: zod_1.z.array(zod_1.z.object({
             content: zod_1.z.string().describe("The fact, note, or information to remember"),
-            memory_type: zod_1.z.enum(["factual", "preference", "event", "relationship", "technical"]).optional()
+            memory_type: zod_1.z.enum(["factual", "preference", "event", "relationship", "technical", "episodic", "procedural"]).optional()
                 .describe("Type hint for the memory. Default: factual"),
         })).min(1).max(100).describe("Array of memories to store"),
         volume_id: zod_1.z.string().optional().describe("Volume (memory space) ID. Uses default if not set."),
