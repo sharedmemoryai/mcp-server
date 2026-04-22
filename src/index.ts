@@ -4,6 +4,21 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { SharedMemoryClient } from "./client.js";
+import { runInstall, printInstallHelp } from "./install.js";
+
+// ─── CLI subcommands (before stdio server) ──────────────
+const subcommand = process.argv[2];
+if (subcommand === "install") {
+  const rest = process.argv.slice(3);
+  if (rest.includes("--help") || rest.includes("-h")) {
+    printInstallHelp();
+    process.exit(0);
+  }
+  runInstall(rest).then(() => process.exit(0)).catch((err) => {
+    console.error("❌ Install failed:", err);
+    process.exit(1);
+  });
+} else {
 
 // ─── Config from env ────────────────────────────────────
 const API_URL = process.env.SHAREDMEMORY_API_URL || "https://api.sharedmemory.ai";
@@ -561,3 +576,5 @@ main().catch((err) => {
   console.error("❌ MCP server failed:", err);
   process.exit(1);
 });
+
+} // end else (not "install" subcommand)

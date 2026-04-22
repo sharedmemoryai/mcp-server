@@ -66,6 +66,46 @@ class SharedMemoryClient {
             limit: limit || 100,
         });
     }
+    // ─── Batch Operations ────────────────────────────────
+    async writeBatch(volumeId, memories) {
+        return this.request("POST", "/memory/write/batch", {
+            volume_id: volumeId,
+            memories,
+        });
+    }
+    async deleteBatch(volumeId, memoryIds) {
+        return this.request("POST", "/memory/delete/batch", {
+            volume_id: volumeId,
+            memory_ids: memoryIds,
+        });
+    }
+    async updateBatch(volumeId, updates) {
+        return this.request("POST", "/memory/update/batch", {
+            volume_id: volumeId,
+            updates,
+        });
+    }
+    // ─── Profile & Context ────────────────────────────────
+    async getMemory(memoryId) {
+        return this.request("GET", `/memory/${memoryId}`);
+    }
+    async getProfile(volumeId, userId) {
+        return this.request("POST", "/memory/profile", {
+            volume_id: volumeId,
+            user_id: userId,
+        });
+    }
+    async getContext(volumeId, userId, maxTokens) {
+        return this.request("POST", "/memory/context", {
+            volume_id: volumeId,
+            user_id: userId,
+            max_tokens: maxTokens,
+        });
+    }
+    // ─── Documents ────────────────────────────────────────
+    async listDocuments(volumeId) {
+        return this.request("GET", `/documents/${volumeId}`);
+    }
 }
 exports.SharedMemoryClient = SharedMemoryClient;
 //# sourceMappingURL=client.js.map

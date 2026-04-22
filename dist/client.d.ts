@@ -12,4 +12,17 @@ export declare class SharedMemoryClient {
     getEntity(volumeId: string, entityName: string): Promise<any>;
     searchEntities(volumeId: string, query: string, limit?: number): Promise<any[]>;
     getGraph(volumeId: string, limit?: number): Promise<any>;
+    writeBatch(volumeId: string, memories: {
+        content: string;
+        memory_type?: string;
+    }[]): Promise<any>;
+    deleteBatch(volumeId: string, memoryIds: string[]): Promise<any>;
+    updateBatch(volumeId: string, updates: {
+        memory_id: string;
+        content: string;
+    }[]): Promise<any>;
+    getMemory(memoryId: string): Promise<any>;
+    getProfile(volumeId: string, userId: string): Promise<any>;
+    getContext(volumeId: string, userId?: string, maxTokens?: number): Promise<any>;
+    listDocuments(volumeId: string): Promise<any[]>;
 }

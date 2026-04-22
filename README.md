@@ -2,7 +2,26 @@
 
 [Model Context Protocol](https://modelcontextprotocol.io) server for [SharedMemory](https://sharedmemory.ai). Gives Claude, Cursor, VS Code Copilot, and other MCP-compatible tools persistent memory.
 
-## Setup
+## Quick Install (Recommended)
+
+The fastest way to set up SharedMemory — one command, no JSON editing:
+
+```bash
+# Interactive — picks your client, asks for your API key
+npx -y @sharedmemory/mcp-server install
+
+# Or specify everything inline
+npx -y @sharedmemory/mcp-server install --cursor --api-key sm_live_... --volume your-volume-id
+
+# Install for all supported clients at once
+npx -y @sharedmemory/mcp-server install --all --api-key sm_live_...
+```
+
+Supported clients: `--claude`, `--cursor`, `--vscode`, `--windsurf`, `--all`
+
+## Manual Setup
+
+If you prefer to edit config files yourself:
 
 ### Claude Desktop
 
@@ -64,6 +83,26 @@
 }
 ```
 
+### Windsurf
+
+`~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "sharedmemory": {
+      "command": "npx",
+      "args": ["-y", "@sharedmemory/mcp-server"],
+      "env": {
+        "SHAREDMEMORY_API_KEY": "sm_live_...",
+        "SHAREDMEMORY_API_URL": "https://api.sharedmemory.ai",
+        "SHAREDMEMORY_VOLUME_ID": "your-volume-id"
+      }
+    }
+  }
+}
+```
+
 ## Configuration
 
 | Variable | Required | Default | Description |
@@ -83,6 +122,11 @@
 | `explore_graph` | Knowledge graph overview |
 | `list_volumes` | List accessible volumes |
 | `manage_memory` | Update or delete a memory by ID |
+| `batch_remember` | Store multiple memories at once |
+| `get_memory` | Retrieve a specific memory by ID |
+| `get_profile` | Auto-generated user profile from memories |
+| `get_context` | Assemble a context block for LLM prompting |
+| `list_documents` | List uploaded documents in a volume |
 
 ## Resources
 
