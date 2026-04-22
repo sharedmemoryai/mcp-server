@@ -145,10 +145,11 @@ export class SharedMemoryClient {
     return this.request("GET", `/memory/${memoryId}?volume_id=${encodeURIComponent(volumeId)}`);
   }
 
-  async getProfile(volumeId: string, userId: string): Promise<any> {
+  async getProfile(volumeId: string, userId?: string, refresh?: boolean): Promise<any> {
     return this.request("POST", "/memory/profile", {
       volume_id: volumeId,
-      user_id: userId,
+      ...(userId ? { user_id: userId } : {}),
+      ...(refresh ? { refresh: true } : {}),
     });
   }
 

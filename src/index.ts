@@ -372,36 +372,69 @@ server.tool(
 // ─── get_profile ────────────────────────────────────────
 server.tool(
   "get_profile",
-  "Get an auto-generated profile for a user based on their stored memories. Returns stable facts, recent activity, relationships, and a summary.",
+  "Get a comprehensive profile for a volume or user. Returns categorized facts (identity, preferences, expertise, projects), relationships, recent activity, instructions, topics, stats, and a pre-formatted context_block for LLM injection.",
   {
-    user_id: z.string().describe("The user ID to generate a profile for"),
+    user_id: z.string().optional().describe("Optional user ID to scope the profile to a specific user"),
     volume_id: z.string().optional().describe("Volume ID. Uses default if not set."),
+    refresh: z.boolean().optional().describe("Force refresh (bypass 5-min cache)"),
   },
-  async ({ user_id, volume_id }) => {
+  async ({ user_id, volume_id, refresh }) => {
     const vol = resolveVolume(volume_id);
-    const profile = await client.getProfile(vol, user_id);
+    const profile = await client.getProfile(vol, user_id, refresh);
 
-    let text = `## Profile: ${profile.user_id}\n\n`;
+    let text = `## Profile${profile.user_id ? `: ${profile.user_id}` : ""}\n\n`;
     if (profile.summary) text += `${profile.summary}\n\n`;
 
-    if (profile.static?.length > 0) {
-      text += "**Core Facts:**\n";
-      profile.static.forEach((f: string) => { text += `• ${f}\n`; });
+    if (profile.identity?.length > 0) {
+      text += "**Identity:**\n";
+      profile.identity.forEach((f: string) => { text += `• ${f}\n`; });
       text += "\n";
     }
 
-    if (profile.dynamic?.length > 0) {
+    if (profile.preferences?.length > 0) {
+      text += "**Preferences:**\n";
+      profile.preferences.forEach((p: string) => { text += `• ${p}\n`; });
+      text += "\n";
+    }
+
+    if (profile.expertise?.length > 0) {
+      text += "**Expertise:**\n";
+      profile.expertise.forEach((e: string) => { text += `• ${e}\n`; });
+      text += "\n";
+    }
+
+    if (profile.projects?.length > 0) {
+      text += "**Projects:**\n";
+      profile.projects.forEach((p: string) => { text += `• ${p}\n`; });
+      text += "\n";
+    }
+
+    if (profile.recent_activity?.length > 0) {
       text += "**Recent Activity:**\n";
-      profile.dynamic.forEach((a: string) => { text += `• ${a}\n`; });
+      profile.recent_activity.forEach((a: string) => { text += `• ${a}\n`; });
       text += "\n";
     }
 
     if (profile.relationships?.length > 0) {
       text += "**Relationships:**\n";
       profile.relationships.forEach((r: any) => {
-        text += `• ${r.type} → ${r.entity}\n`;
+        text += `• ${r.entity} (${r.type})${r.description ? `: ${r.description}` : ""}\n`;
       });
+      text += "\n";
     }
+
+    if (profile.topics?.length > 0) {
+      text += "**Topics:**\n";
+      profile.topics.slice(0, 10).forEach((t: any) => { text += `• ${t.name} (${t.fact_count} facts)\n`; });
+      text += "\n";
+    }
+
+    const s = profile.stats;
+    if (s) {
+      text += `**Stats:** ${s.total_memories} memories, ${s.entities_count} entities, ${s.memories_7d} in last 7d\n`;
+    }
+
+    text += `\n*${profile.cached ? "Cached" : "Fresh"} · ${profile.latency_ms}ms · ${profile.token_estimate} tokens*`;
 
     return { content: [{ type: "text" as const, text }] };
   }
