@@ -32,7 +32,7 @@ else {
     // ─── Create MCP Server ─────────────────────────────────
     const server = new mcp_js_1.McpServer({
         name: "SharedMemory",
-        version: "2.1.0",
+        version: "2.1.3",
     });
     // ─── Helper: resolve volume_id ──────────────────────────
     function resolveVolume(volumeId) {
@@ -50,9 +50,14 @@ else {
         volume_id: zod_1.z.string().optional().describe("Volume (memory space) ID. Uses default if not set."),
         memory_type: zod_1.z.enum(["factual", "preference", "event", "relationship", "technical", "episodic", "procedural"]).optional()
             .describe("Type hint for the memory. Default: factual"),
-    }, async ({ content, volume_id, memory_type }) => {
+        user_id: zod_1.z.string().optional().describe("Scope this memory to a specific user"),
+        session_id: zod_1.z.string().optional().describe("Scope this memory to a conversation session"),
+        agent_id: zod_1.z.string().optional().describe("Agent that created this memory"),
+        app_id: zod_1.z.string().optional().describe("App identifier for scoping"),
+        metadata: zod_1.z.record(zod_1.z.string(), zod_1.z.any()).optional().describe("Arbitrary key-value metadata to attach"),
+    }, async ({ content, volume_id, memory_type, user_id, session_id, agent_id, app_id, metadata }) => {
         const vol = resolveVolume(volume_id);
-        const result = await client.writeMemory(vol, content, memory_type);
+        const result = await client.writeMemory(vol, content, memory_type, { user_id, session_id, agent_id, app_id, metadata });
         return {
             content: [
                 {
@@ -72,9 +77,14 @@ else {
         query: zod_1.z.string().describe("What to search for in memory"),
         volume_id: zod_1.z.string().optional().describe("Volume ID. Uses default if not set."),
         limit: zod_1.z.number().min(1).max(50).optional().describe("Max results. Default: 10"),
-    }, async ({ query, volume_id, limit }) => {
+        user_id: zod_1.z.string().optional().describe("Filter results to a specific user"),
+        session_id: zod_1.z.string().optional().describe("Filter results to a specific session"),
+        agent_id: zod_1.z.string().optional().describe("Filter results from a specific agent"),
+        app_id: zod_1.z.string().optional().describe("Filter results from a specific app"),
+        rerank: zod_1.z.boolean().optional().describe("Re-rank results for better relevance. Default: false"),
+    }, async ({ query, volume_id, limit, user_id, session_id, agent_id, app_id, rerank }) => {
         const vol = resolveVolume(volume_id);
-        const result = await client.queryMemory(vol, query, limit);
+        const result = await client.queryMemory(vol, query, limit, { user_id, session_id, agent_id, app_id, rerank });
         let text = `🔍 Found ${result.total_results} results for "${query}"\n\n`;
         if (result.memories?.length > 0) {
             text += "**Memories:**\n";
@@ -217,7 +227,7 @@ else {
     }, async ({ action, memory_id, volume_id, content }) => {
         const vol = resolveVolume(volume_id);
         if (action === "delete") {
-            await client.request("DELETE", `/memory/${memory_id}`, { volume_id: vol });
+            await client.deleteMemory(memory_id, vol);
             return { content: [{ type: "text", text: `🗑️ Memory ${memory_id} deleted.` }] };
         }
         if (action === "update" && content) {
@@ -234,9 +244,25 @@ else {
                 .describe("Type hint for the memory. Default: factual"),
         })).min(1).max(100).describe("Array of memories to store"),
         volume_id: zod_1.z.string().optional().describe("Volume (memory space) ID. Uses default if not set."),
-    }, async ({ memories, volume_id }) => {
+        user_id: zod_1.z.string().optional().describe("Scope all memories to a specific user"),
+        session_id: zod_1.z.string().optional().describe("Scope all memories to a conversation session"),
+        agent_id: zod_1.z.string().optional().describe("Agent that created these memories"),
+        app_id: zod_1.z.string().optional().describe("App identifier for scoping"),
+    }, async ({ memories, volume_id, user_id, session_id, agent_id, app_id }) => {
         const vol = resolveVolume(volume_id);
-        const result = await client.writeBatch(vol, memories);
+        const scopedMemories = memories.map(m => {
+            const item = { ...m };
+            if (user_id)
+                item.user_id = user_id;
+            if (session_id)
+                item.session_id = session_id;
+            if (agent_id)
+                item.agent_id = agent_id;
+            if (app_id)
+                item.app_id = app_id;
+            return item;
+        });
+        const result = await client.writeBatch(vol, scopedMemories);
         let text = `✅ Batch write complete.\n\n`;
         text += `**Total:** ${result.total} · **Succeeded:** ${result.succeeded} · **Failed:** ${result.failed}\n`;
         if (result.failed > 0 && result.results) {

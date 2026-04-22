@@ -6,9 +6,24 @@ export declare class SharedMemoryClient {
     private apiKey;
     constructor(baseUrl: string, apiKey: string);
     request(method: string, path: string, body?: any): Promise<any>;
+    requestGet(path: string, params?: Record<string, string>): Promise<any>;
+    requestDelete(path: string, params?: Record<string, string>): Promise<any>;
     listVolumes(): Promise<any[]>;
-    writeMemory(volumeId: string, content: string, memoryType?: string): Promise<any>;
-    queryMemory(volumeId: string, query: string, limit?: number): Promise<any>;
+    writeMemory(volumeId: string, content: string, memoryType?: string, scope?: {
+        user_id?: string;
+        session_id?: string;
+        agent_id?: string;
+        app_id?: string;
+        metadata?: Record<string, any>;
+    }): Promise<any>;
+    queryMemory(volumeId: string, query: string, limit?: number, scope?: {
+        user_id?: string;
+        session_id?: string;
+        agent_id?: string;
+        app_id?: string;
+        rerank?: boolean;
+    }): Promise<any>;
+    deleteMemory(memoryId: string, volumeId: string): Promise<any>;
     getEntity(volumeId: string, entityName: string): Promise<any>;
     searchEntities(volumeId: string, query: string, limit?: number): Promise<any[]>;
     getGraph(volumeId: string, limit?: number): Promise<any>;

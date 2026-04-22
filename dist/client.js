@@ -27,27 +27,75 @@ class SharedMemoryClient {
         }
         return res.json();
     }
+    async requestGet(path, params) {
+        const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+        const url = `${this.baseUrl}/agent${path}${qs}`;
+        const res = await fetch(url, {
+            method: 'GET',
+            headers: { Authorization: `Bearer ${this.apiKey}` },
+        });
+        if (!res.ok) {
+            const errorBody = await res.text();
+            throw new Error(`SharedMemory API error ${res.status}: ${errorBody}`);
+        }
+        return res.json();
+    }
+    async requestDelete(path, params) {
+        const qs = params ? '?' + new URLSearchParams(params).toString() : '';
+        const url = `${this.baseUrl}/agent${path}${qs}`;
+        const res = await fetch(url, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${this.apiKey}` },
+        });
+        if (!res.ok) {
+            const errorBody = await res.text();
+            throw new Error(`SharedMemory API error ${res.status}: ${errorBody}`);
+        }
+        return res.json();
+    }
     // ─── Volumes ─────────────────────────────────────────
     async listVolumes() {
         return this.request("GET", "/volumes");
     }
     // ─── Memory ──────────────────────────────────────────
-    async writeMemory(volumeId, content, memoryType) {
-        return this.request("POST", "/memory/write", {
+    async writeMemory(volumeId, content, memoryType, scope) {
+        const body = {
             volume_id: volumeId,
             content,
             memory_type: memoryType || "factual",
-        });
+        };
+        if (scope?.user_id)
+            body.user_id = scope.user_id;
+        if (scope?.session_id)
+            body.session_id = scope.session_id;
+        if (scope?.agent_id)
+            body.agent_id = scope.agent_id;
+        if (scope?.app_id)
+            body.app_id = scope.app_id;
+        if (scope?.metadata)
+            body.metadata = scope.metadata;
+        return this.request("POST", "/memory/write", body);
     }
-    async queryMemory(volumeId, query, limit) {
-        return this.request("POST", "/memory/query", {
+    async queryMemory(volumeId, query, limit, scope) {
+        const body = {
             volume_id: volumeId,
             query,
             limit: limit || 10,
-            // enrich: true adds graph facts but costs an LLM call per query.
-            // Kept off by default for free tier cost savings. Users get graph
-            // facts via get_entity/explore_graph tools instead.
-        });
+        };
+        if (scope?.user_id)
+            body.user_id = scope.user_id;
+        if (scope?.session_id)
+            body.session_id = scope.session_id;
+        if (scope?.agent_id)
+            body.agent_id = scope.agent_id;
+        if (scope?.app_id)
+            body.app_id = scope.app_id;
+        if (scope?.rerank)
+            body.rerank = true;
+        return this.request("POST", "/memory/query", body);
+    }
+    async deleteMemory(memoryId, volumeId) {
+        return this.requestDelete(`/memory/${memoryId}`, { volume_id: volumeId });
     }
     // ─── Entities & Graph ────────────────────────────────
     async getEntity(volumeId, entityName) {
