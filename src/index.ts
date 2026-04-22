@@ -56,7 +56,7 @@ server.tool(
   {
     content: z.string().describe("The fact, note, or information to remember"),
     volume_id: z.string().optional().describe("Volume (memory space) ID. Uses default if not set."),
-    memory_type: z.enum(["factual", "preference", "event", "relationship", "technical"]).optional()
+    memory_type: z.enum(["factual", "preference", "event", "relationship", "technical", "episodic", "procedural"]).optional()
       .describe("Type hint for the memory. Default: factual"),
   },
   async ({ content, volume_id, memory_type }) => {
@@ -300,7 +300,7 @@ server.tool(
   {
     memories: z.array(z.object({
       content: z.string().describe("The fact, note, or information to remember"),
-      memory_type: z.enum(["factual", "preference", "event", "relationship", "technical"]).optional()
+      memory_type: z.enum(["factual", "preference", "event", "relationship", "technical", "episodic", "procedural"]).optional()
         .describe("Type hint for the memory. Default: factual"),
     })).min(1).max(100).describe("Array of memories to store"),
     volume_id: z.string().optional().describe("Volume (memory space) ID. Uses default if not set."),
