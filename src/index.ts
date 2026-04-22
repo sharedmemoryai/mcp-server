@@ -67,7 +67,7 @@ server.tool(
         {
           type: "text" as const,
           text: `✅ Memory stored.\n\n` +
-            `**Decision:** ${result.decision || "approved"}\n` +
+            `**Decision:** ${result.status || "approved"}\n` +
             `**Confidence:** ${result.confidence ?? "N/A"}\n` +
             (result.reason ? `**Reason:** ${result.reason}\n` : "") +
             (result.merged_content ? `**Merged with:** ${result.merged_content}\n` : "") +
