@@ -58,15 +58,16 @@ server.tool(
     volume_id: z.string().optional().describe("Volume (memory space) ID. Uses default if not set."),
     memory_type: z.enum(["factual", "preference", "event", "relationship", "technical", "episodic", "procedural", "instruction"]).optional()
       .describe("Type hint for the memory. Default: factual. Use 'instruction' for rules/conventions all agents should follow."),
+    event_date: z.string().optional().describe("ISO date (YYYY-MM-DD or full ISO) of when the event occurred. Not when it's being stored."),
     user_id: z.string().optional().describe("Scope this memory to a specific user"),
     session_id: z.string().optional().describe("Scope this memory to a conversation session"),
     agent_id: z.string().optional().describe("Agent that created this memory"),
     app_id: z.string().optional().describe("App identifier for scoping"),
     metadata: z.record(z.string(), z.any()).optional().describe("Arbitrary key-value metadata to attach"),
   },
-  async ({ content, volume_id, memory_type, user_id, session_id, agent_id, app_id, metadata }) => {
+  async ({ content, volume_id, memory_type, event_date, user_id, session_id, agent_id, app_id, metadata }) => {
     const vol = resolveVolume(volume_id);
-    const result = await client.writeMemory(vol, content, memory_type, { user_id, session_id, agent_id, app_id, metadata });
+    const result = await client.writeMemory(vol, content, memory_type, { user_id, session_id, agent_id, app_id, event_date, metadata });
     return {
       content: [
         {
@@ -91,15 +92,17 @@ server.tool(
     query: z.string().describe("What to search for in memory"),
     volume_id: z.string().optional().describe("Volume ID. Uses default if not set."),
     limit: z.number().min(1).max(50).optional().describe("Max results. Default: 10"),
+    date_from: z.string().optional().describe("Filter memories with event_date >= this ISO date (e.g. 2026-04-01)"),
+    date_to: z.string().optional().describe("Filter memories with event_date <= this ISO date (e.g. 2026-04-30)"),
     user_id: z.string().optional().describe("Filter results to a specific user"),
     session_id: z.string().optional().describe("Filter results to a specific session"),
     agent_id: z.string().optional().describe("Filter results from a specific agent"),
     app_id: z.string().optional().describe("Filter results from a specific app"),
     rerank: z.boolean().optional().describe("Re-rank results for better relevance. Default: false"),
   },
-  async ({ query, volume_id, limit, user_id, session_id, agent_id, app_id, rerank }) => {
+  async ({ query, volume_id, limit, date_from, date_to, user_id, session_id, agent_id, app_id, rerank }) => {
     const vol = resolveVolume(volume_id);
-    const result = await client.queryMemory(vol, query, limit, { user_id, session_id, agent_id, app_id, rerank });
+    const result = await client.queryMemory(vol, query, limit, { user_id, session_id, agent_id, app_id, rerank, date_from, date_to });
 
     let text = `🔍 Found ${result.total_results} results for "${query}"\n\n`;
 

@@ -63,7 +63,7 @@ export class SharedMemoryClient {
   }
 
   // ─── Memory ──────────────────────────────────────────
-  async writeMemory(volumeId: string, content: string, memoryType?: string, scope?: { user_id?: string; session_id?: string; agent_id?: string; app_id?: string; metadata?: Record<string, any> }): Promise<any> {
+  async writeMemory(volumeId: string, content: string, memoryType?: string, scope?: { user_id?: string; session_id?: string; agent_id?: string; app_id?: string; event_date?: string; metadata?: Record<string, any> }): Promise<any> {
     const body: any = {
       volume_id: volumeId,
       content,
@@ -73,11 +73,12 @@ export class SharedMemoryClient {
     if (scope?.session_id) body.session_id = scope.session_id;
     if (scope?.agent_id) body.agent_id = scope.agent_id;
     if (scope?.app_id) body.app_id = scope.app_id;
+    if (scope?.event_date) body.event_date = scope.event_date;
     if (scope?.metadata) body.metadata = scope.metadata;
     return this.request("POST", "/memory/write", body);
   }
 
-  async queryMemory(volumeId: string, query: string, limit?: number, scope?: { user_id?: string; session_id?: string; agent_id?: string; app_id?: string; rerank?: boolean }): Promise<any> {
+  async queryMemory(volumeId: string, query: string, limit?: number, scope?: { user_id?: string; session_id?: string; agent_id?: string; app_id?: string; rerank?: boolean; date_from?: string; date_to?: string }): Promise<any> {
     const body: any = {
       volume_id: volumeId,
       query,
@@ -88,6 +89,8 @@ export class SharedMemoryClient {
     if (scope?.agent_id) body.agent_id = scope.agent_id;
     if (scope?.app_id) body.app_id = scope.app_id;
     if (scope?.rerank) body.rerank = true;
+    if (scope?.date_from) body.date_from = scope.date_from;
+    if (scope?.date_to) body.date_to = scope.date_to;
     return this.request("POST", "/memory/query", body);
   }
 
