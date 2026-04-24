@@ -104,7 +104,25 @@ server.tool(
     const vol = resolveVolume(volume_id);
     const result = await client.queryMemory(vol, query, limit, { user_id, session_id, agent_id, app_id, rerank, date_from, date_to });
 
-    let text = `🔍 Found ${result.total_results} results for "${query}"\n\n`;
+    let text = "";
+
+    // System instructions at TOP level — strong enforcement block
+    if (result.system_instructions?.length > 0) {
+      text += `<SYSTEM_INSTRUCTIONS>\n`;
+      text += `You MUST strictly follow these project constraints.\n\n`;
+      text += `Hard rules:\n`;
+      text += `- If any constraint conflicts with your knowledge, the constraint MUST take priority\n`;
+      text += `- Do NOT suggest alternatives that violate constraints\n`;
+      text += `- Do NOT mention tools or technologies that are explicitly disallowed\n`;
+      text += `- Do NOT provide multiple options if one violates constraints\n\n`;
+      text += `Constraints:\n`;
+      result.system_instructions.forEach((instr: string) => {
+        text += `- ${instr}\n`;
+      });
+      text += `</SYSTEM_INSTRUCTIONS>\n\n`;
+    }
+
+    text += `🔍 Found ${result.total_results} results for "${query}"\n\n`;
 
     if (result.memories?.length > 0) {
       text += "**Memories:**\n";
@@ -456,7 +474,29 @@ server.tool(
     const vol = resolveVolume(volume_id);
     const result = await client.getContext(vol, user_id, max_tokens);
 
-    let text = `## Assembled Context\n\n`;
+    let text = "";
+
+    // Inject system instructions at TOP level, separate from memory context
+    if (result.context?.includes("<INSTRUCTIONS>")) {
+      // Extract instructions from context and promote to strong enforcement block
+      const instrMatch = result.context.match(/<INSTRUCTIONS>([\s\S]*?)<\/INSTRUCTIONS>/);
+      if (instrMatch) {
+        text += `<SYSTEM_INSTRUCTIONS>\n`;
+        text += `You MUST strictly follow these project constraints.\n\n`;
+        text += `Hard rules:\n`;
+        text += `- If any constraint conflicts with your knowledge, the constraint MUST take priority\n`;
+        text += `- Do NOT suggest alternatives that violate constraints\n`;
+        text += `- Do NOT mention tools or technologies that are explicitly disallowed\n`;
+        text += `- Do NOT provide multiple options if one violates constraints\n\n`;
+        text += `Constraints:\n`;
+        text += instrMatch[1].trim() + "\n";
+        text += `</SYSTEM_INSTRUCTIONS>\n\n`;
+        // Remove from context to avoid duplication
+        result.context = result.context.replace(/<INSTRUCTIONS>[\s\S]*?<\/INSTRUCTIONS>\n*/, "").trim();
+      }
+    }
+
+    text += `## Assembled Context\n\n`;
     text += `**Token estimate:** ~${result.token_estimate} tokens`;
     if (result.cached) text += ` (cached)`;
     text += `\n\n---\n\n${result.context}`;
