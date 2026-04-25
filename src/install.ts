@@ -304,7 +304,7 @@ export async function runInstall(argv: string[]): Promise<void> {
     "",
     `${b}${gradient("  SharedMemory", [0, 180, 255], [160, 100, 255])}${r}`,
     "",
-    `  ${d}${GRAY}MCP Server Installer  v2.1.0${r}`,
+    `  ${d}${GRAY}MCP Server Installer  v2.4.0${r}`,
     `  ${d}${GRAY}Persistent memory for AI agents${r}`,
     "",
   ], { borderColor: BLUE, padding: 2 }));

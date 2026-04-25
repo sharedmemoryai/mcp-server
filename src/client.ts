@@ -94,6 +94,22 @@ export class SharedMemoryClient {
     return this.request("POST", "/memory/query", body);
   }
 
+  async chatMemory(volumeId: string, query: string, limit?: number, scope?: { user_id?: string; session_id?: string; agent_id?: string; app_id?: string; rerank?: boolean; date_from?: string; date_to?: string }): Promise<any> {
+    const body: any = {
+      volume_id: volumeId,
+      query,
+      limit: limit || 10,
+    };
+    if (scope?.user_id) body.user_id = scope.user_id;
+    if (scope?.session_id) body.session_id = scope.session_id;
+    if (scope?.agent_id) body.agent_id = scope.agent_id;
+    if (scope?.app_id) body.app_id = scope.app_id;
+    if (scope?.rerank) body.rerank = true;
+    if (scope?.date_from) body.date_from = scope.date_from;
+    if (scope?.date_to) body.date_to = scope.date_to;
+    return this.request("POST", "/memory/chat", body);
+  }
+
   async deleteMemory(memoryId: string, volumeId: string): Promise<any> {
     return this.requestDelete(`/memory/${memoryId}`, { volume_id: volumeId });
   }

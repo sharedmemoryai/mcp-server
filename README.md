@@ -152,7 +152,8 @@ Or create `.mcp.json` in your project root to share with your team:
 | Tool | Description |
 |------|-------------|
 | `remember` | Store a fact or note |
-| `recall` | Semantic search over memories |
+| `recall` | Retrieve context BEFORE answering — semantic search over memories |
+| `chat` | Get a pre-built LLM answer grounded in memories (use when user asks for memory summary) |
 | `get_entity` | Get entity details and relationships |
 | `search_entities` | Search entities by name |
 | `explore_graph` | Knowledge graph overview |
@@ -162,7 +163,8 @@ Or create `.mcp.json` in your project root to share with your team:
 | `get_memory` | Retrieve a specific memory by ID |
 | `get_profile` | Auto-generated user profile from memories |
 | `get_context` | Assemble a context block for LLM prompting |
-| `list_documents` | List uploaded documents in a volume |
+| `set_instruction` | Store a persistent rule all agents will follow |
+| `list_instructions` | List all active instructions for a volume |
 
 ## Resources
 

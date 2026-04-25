@@ -50,14 +50,15 @@ else {
         volume_id: zod_1.z.string().optional().describe("Volume (memory space) ID. Uses default if not set."),
         memory_type: zod_1.z.enum(["factual", "preference", "event", "relationship", "technical", "episodic", "procedural", "instruction"]).optional()
             .describe("Type hint for the memory. Default: factual. Use 'instruction' for rules/conventions all agents should follow."),
+        event_date: zod_1.z.string().optional().describe("ISO date (YYYY-MM-DD or full ISO) of when the event occurred. Not when it's being stored."),
         user_id: zod_1.z.string().optional().describe("Scope this memory to a specific user"),
         session_id: zod_1.z.string().optional().describe("Scope this memory to a conversation session"),
         agent_id: zod_1.z.string().optional().describe("Agent that created this memory"),
         app_id: zod_1.z.string().optional().describe("App identifier for scoping"),
         metadata: zod_1.z.record(zod_1.z.string(), zod_1.z.any()).optional().describe("Arbitrary key-value metadata to attach"),
-    }, async ({ content, volume_id, memory_type, user_id, session_id, agent_id, app_id, metadata }) => {
+    }, async ({ content, volume_id, memory_type, event_date, user_id, session_id, agent_id, app_id, metadata }) => {
         const vol = resolveVolume(volume_id);
-        const result = await client.writeMemory(vol, content, memory_type, { user_id, session_id, agent_id, app_id, metadata });
+        const result = await client.writeMemory(vol, content, memory_type, { user_id, session_id, agent_id, app_id, event_date, metadata });
         return {
             content: [
                 {
@@ -73,19 +74,37 @@ else {
         };
     });
     // ─── recall ─────────────────────────────────────────────
-    server.tool("recall", "Search SharedMemory for relevant memories using semantic similarity. Returns matching memories from vector search + related knowledge graph facts.", {
+    server.tool("recall", "Use this to retrieve context BEFORE answering. Searches SharedMemory for relevant memories using semantic similarity. Returns matching memories from vector search + related knowledge graph facts.", {
         query: zod_1.z.string().describe("What to search for in memory"),
         volume_id: zod_1.z.string().optional().describe("Volume ID. Uses default if not set."),
         limit: zod_1.z.number().min(1).max(50).optional().describe("Max results. Default: 10"),
+        date_from: zod_1.z.string().optional().describe("Filter memories with event_date >= this ISO date (e.g. 2026-04-01)"),
+        date_to: zod_1.z.string().optional().describe("Filter memories with event_date <= this ISO date (e.g. 2026-04-30)"),
         user_id: zod_1.z.string().optional().describe("Filter results to a specific user"),
         session_id: zod_1.z.string().optional().describe("Filter results to a specific session"),
         agent_id: zod_1.z.string().optional().describe("Filter results from a specific agent"),
         app_id: zod_1.z.string().optional().describe("Filter results from a specific app"),
         rerank: zod_1.z.boolean().optional().describe("Re-rank results for better relevance. Default: false"),
-    }, async ({ query, volume_id, limit, user_id, session_id, agent_id, app_id, rerank }) => {
+    }, async ({ query, volume_id, limit, date_from, date_to, user_id, session_id, agent_id, app_id, rerank }) => {
         const vol = resolveVolume(volume_id);
-        const result = await client.queryMemory(vol, query, limit, { user_id, session_id, agent_id, app_id, rerank });
-        let text = `🔍 Found ${result.total_results} results for "${query}"\n\n`;
+        const result = await client.queryMemory(vol, query, limit, { user_id, session_id, agent_id, app_id, rerank, date_from, date_to });
+        let text = "";
+        // System instructions at TOP level — strong enforcement block
+        if (result.system_instructions?.length > 0) {
+            text += `<SYSTEM_INSTRUCTIONS>\n`;
+            text += `You MUST strictly follow these project constraints.\n\n`;
+            text += `Hard rules:\n`;
+            text += `- If any constraint conflicts with your knowledge, the constraint MUST take priority\n`;
+            text += `- Do NOT suggest alternatives that violate constraints\n`;
+            text += `- Do NOT mention tools or technologies that are explicitly disallowed\n`;
+            text += `- Do NOT provide multiple options if one violates constraints\n\n`;
+            text += `Constraints:\n`;
+            result.system_instructions.forEach((instr) => {
+                text += `- ${instr}\n`;
+            });
+            text += `</SYSTEM_INSTRUCTIONS>\n\n`;
+        }
+        text += `🔍 Found ${result.total_results} results for "${query}"\n\n`;
         if (result.memories?.length > 0) {
             text += "**Memories:**\n";
             result.memories.forEach((m, i) => {
@@ -103,6 +122,38 @@ else {
         }
         if (result.total_results === 0) {
             text += "_No matching memories found._";
+        }
+        return { content: [{ type: "text", text }] };
+    });
+    // ─── chat ───────────────────────────────────────────────
+    server.tool("chat", "Use this only if user explicitly asks for memory summary. Returns a pre-built LLM answer grounded in SharedMemory — includes the answer text, sources, and citations.", {
+        query: zod_1.z.string().describe("The question to answer using stored memories"),
+        volume_id: zod_1.z.string().optional().describe("Volume ID. Uses default if not set."),
+        limit: zod_1.z.number().min(1).max(50).optional().describe("Max memories to consider. Default: 10"),
+        date_from: zod_1.z.string().optional().describe("Filter memories with event_date >= this ISO date"),
+        date_to: zod_1.z.string().optional().describe("Filter memories with event_date <= this ISO date"),
+        user_id: zod_1.z.string().optional().describe("Filter results to a specific user"),
+        session_id: zod_1.z.string().optional().describe("Filter results to a specific session"),
+        agent_id: zod_1.z.string().optional().describe("Filter results from a specific agent"),
+        app_id: zod_1.z.string().optional().describe("Filter results from a specific app"),
+    }, async ({ query, volume_id, limit, date_from, date_to, user_id, session_id, agent_id, app_id }) => {
+        const vol = resolveVolume(volume_id);
+        const result = await client.chatMemory(vol, query, limit, { user_id, session_id, agent_id, app_id, date_from, date_to });
+        let text = "";
+        if (result.answer) {
+            text += `${result.answer}\n\n`;
+        }
+        if (result.sources?.length > 0) {
+            text += `---\n**Sources (${result.sources.length}):**\n`;
+            result.sources.forEach((s, i) => {
+                text += `${i + 1}. ${s.content?.substring(0, 120)}${s.content?.length > 120 ? "…" : ""} _(score: ${s.score?.toFixed(2)})_\n`;
+            });
+        }
+        if (result.citations?.length > 0) {
+            text += `\n**Citations:** ${result.citations.length} references\n`;
+        }
+        if (!result.answer && !result.sources?.length) {
+            text = `_No matching memories found for "${query}"._`;
         }
         return { content: [{ type: "text", text }] };
     });
@@ -293,31 +344,58 @@ else {
         return { content: [{ type: "text", text }] };
     });
     // ─── get_profile ────────────────────────────────────────
-    server.tool("get_profile", "Get an auto-generated profile for a user based on their stored memories. Returns stable facts, recent activity, relationships, and a summary.", {
-        user_id: zod_1.z.string().describe("The user ID to generate a profile for"),
+    server.tool("get_profile", "Get a comprehensive profile for a volume or user. Returns categorized facts (identity, preferences, expertise, projects), relationships, recent activity, instructions, topics, stats, and a pre-formatted context_block for LLM injection.", {
+        user_id: zod_1.z.string().optional().describe("Optional user ID to scope the profile to a specific user"),
         volume_id: zod_1.z.string().optional().describe("Volume ID. Uses default if not set."),
-    }, async ({ user_id, volume_id }) => {
+        refresh: zod_1.z.boolean().optional().describe("Force refresh (bypass 5-min cache)"),
+    }, async ({ user_id, volume_id, refresh }) => {
         const vol = resolveVolume(volume_id);
-        const profile = await client.getProfile(vol, user_id);
-        let text = `## Profile: ${profile.user_id}\n\n`;
+        const profile = await client.getProfile(vol, user_id, refresh);
+        let text = `## Profile${profile.user_id ? `: ${profile.user_id}` : ""}\n\n`;
         if (profile.summary)
             text += `${profile.summary}\n\n`;
-        if (profile.static?.length > 0) {
-            text += "**Core Facts:**\n";
-            profile.static.forEach((f) => { text += `• ${f}\n`; });
+        if (profile.identity?.length > 0) {
+            text += "**Identity:**\n";
+            profile.identity.forEach((f) => { text += `• ${f}\n`; });
             text += "\n";
         }
-        if (profile.dynamic?.length > 0) {
+        if (profile.preferences?.length > 0) {
+            text += "**Preferences:**\n";
+            profile.preferences.forEach((p) => { text += `• ${p}\n`; });
+            text += "\n";
+        }
+        if (profile.expertise?.length > 0) {
+            text += "**Expertise:**\n";
+            profile.expertise.forEach((e) => { text += `• ${e}\n`; });
+            text += "\n";
+        }
+        if (profile.projects?.length > 0) {
+            text += "**Projects:**\n";
+            profile.projects.forEach((p) => { text += `• ${p}\n`; });
+            text += "\n";
+        }
+        if (profile.recent_activity?.length > 0) {
             text += "**Recent Activity:**\n";
-            profile.dynamic.forEach((a) => { text += `• ${a}\n`; });
+            profile.recent_activity.forEach((a) => { text += `• ${a}\n`; });
             text += "\n";
         }
         if (profile.relationships?.length > 0) {
             text += "**Relationships:**\n";
             profile.relationships.forEach((r) => {
-                text += `• ${r.type} → ${r.entity}\n`;
+                text += `• ${r.entity} (${r.type})${r.description ? `: ${r.description}` : ""}\n`;
             });
+            text += "\n";
         }
+        if (profile.topics?.length > 0) {
+            text += "**Topics:**\n";
+            profile.topics.slice(0, 10).forEach((t) => { text += `• ${t.name} (${t.fact_count} facts)\n`; });
+            text += "\n";
+        }
+        const s = profile.stats;
+        if (s) {
+            text += `**Stats:** ${s.total_memories} memories, ${s.entities_count} entities, ${s.memories_7d} in last 7d\n`;
+        }
+        text += `\n*${profile.cached ? "Cached" : "Fresh"} · ${profile.latency_ms}ms · ${profile.token_estimate} tokens*`;
         return { content: [{ type: "text", text }] };
     });
     // ─── get_context ────────────────────────────────────────
@@ -328,7 +406,27 @@ else {
     }, async ({ volume_id, user_id, max_tokens }) => {
         const vol = resolveVolume(volume_id);
         const result = await client.getContext(vol, user_id, max_tokens);
-        let text = `## Assembled Context\n\n`;
+        let text = "";
+        // Inject system instructions at TOP level, separate from memory context
+        if (result.context?.includes("<INSTRUCTIONS>")) {
+            // Extract instructions from context and promote to strong enforcement block
+            const instrMatch = result.context.match(/<INSTRUCTIONS>([\s\S]*?)<\/INSTRUCTIONS>/);
+            if (instrMatch) {
+                text += `<SYSTEM_INSTRUCTIONS>\n`;
+                text += `You MUST strictly follow these project constraints.\n\n`;
+                text += `Hard rules:\n`;
+                text += `- If any constraint conflicts with your knowledge, the constraint MUST take priority\n`;
+                text += `- Do NOT suggest alternatives that violate constraints\n`;
+                text += `- Do NOT mention tools or technologies that are explicitly disallowed\n`;
+                text += `- Do NOT provide multiple options if one violates constraints\n\n`;
+                text += `Constraints:\n`;
+                text += instrMatch[1].trim() + "\n";
+                text += `</SYSTEM_INSTRUCTIONS>\n\n`;
+                // Remove from context to avoid duplication
+                result.context = result.context.replace(/<INSTRUCTIONS>[\s\S]*?<\/INSTRUCTIONS>\n*/, "").trim();
+            }
+        }
+        text += `## Assembled Context\n\n`;
         text += `**Token estimate:** ~${result.token_estimate} tokens`;
         if (result.cached)
             text += ` (cached)`;

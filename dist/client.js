@@ -72,6 +72,8 @@ class SharedMemoryClient {
             body.agent_id = scope.agent_id;
         if (scope?.app_id)
             body.app_id = scope.app_id;
+        if (scope?.event_date)
+            body.event_date = scope.event_date;
         if (scope?.metadata)
             body.metadata = scope.metadata;
         return this.request("POST", "/memory/write", body);
@@ -92,7 +94,33 @@ class SharedMemoryClient {
             body.app_id = scope.app_id;
         if (scope?.rerank)
             body.rerank = true;
+        if (scope?.date_from)
+            body.date_from = scope.date_from;
+        if (scope?.date_to)
+            body.date_to = scope.date_to;
         return this.request("POST", "/memory/query", body);
+    }
+    async chatMemory(volumeId, query, limit, scope) {
+        const body = {
+            volume_id: volumeId,
+            query,
+            limit: limit || 10,
+        };
+        if (scope?.user_id)
+            body.user_id = scope.user_id;
+        if (scope?.session_id)
+            body.session_id = scope.session_id;
+        if (scope?.agent_id)
+            body.agent_id = scope.agent_id;
+        if (scope?.app_id)
+            body.app_id = scope.app_id;
+        if (scope?.rerank)
+            body.rerank = true;
+        if (scope?.date_from)
+            body.date_from = scope.date_from;
+        if (scope?.date_to)
+            body.date_to = scope.date_to;
+        return this.request("POST", "/memory/chat", body);
     }
     async deleteMemory(memoryId, volumeId) {
         return this.requestDelete(`/memory/${memoryId}`, { volume_id: volumeId });
@@ -140,10 +168,11 @@ class SharedMemoryClient {
     async getMemory(memoryId, volumeId) {
         return this.request("GET", `/memory/${memoryId}?volume_id=${encodeURIComponent(volumeId)}`);
     }
-    async getProfile(volumeId, userId) {
+    async getProfile(volumeId, userId, refresh) {
         return this.request("POST", "/memory/profile", {
             volume_id: volumeId,
-            user_id: userId,
+            ...(userId ? { user_id: userId } : {}),
+            ...(refresh ? { refresh: true } : {}),
         });
     }
     async getContext(volumeId, userId, maxTokens) {
