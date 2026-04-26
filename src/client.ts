@@ -185,6 +185,17 @@ export class SharedMemoryClient {
     return this.request("GET", `/documents/${volumeId}`);
   }
 
+  // ─── Feedback ─────────────────────────────────────────
+  async feedback(memoryId: string, volumeId: string, feedback: string, reason?: string): Promise<any> {
+    const body: any = {
+      memory_id: memoryId,
+      volume_id: volumeId,
+      feedback,
+    };
+    if (reason) body.reason = reason;
+    return this.request("POST", "/memory/feedback", body);
+  }
+
   // ─── Instructions ─────────────────────────────────────
   async listInstructions(volumeId: string): Promise<any[]> {
     // Use search with filter to get all instructions for a volume

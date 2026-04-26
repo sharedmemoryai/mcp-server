@@ -152,19 +152,22 @@ Or create `.mcp.json` in your project root to share with your team:
 | Tool | Description |
 |------|-------------|
 | `remember` | Store a fact or note |
-| `recall` | Retrieve context BEFORE answering — semantic search over memories |
+| `query` | Retrieve context BEFORE answering — semantic search over memories |
 | `chat` | Get a pre-built LLM answer grounded in memories (use when user asks for memory summary) |
 | `get_entity` | Get entity details and relationships |
 | `search_entities` | Search entities by name |
-| `explore_graph` | Knowledge graph overview |
+| `get_graph` | Knowledge graph overview |
 | `list_volumes` | List accessible volumes |
-| `manage_memory` | Update or delete a memory by ID |
+| `delete_memory` | Delete a memory by ID |
+| `update_memory` | Update a memory by ID |
+| `feedback` | Submit feedback on memory relevance |
 | `batch_remember` | Store multiple memories at once |
 | `get_memory` | Retrieve a specific memory by ID |
 | `get_profile` | Auto-generated user profile from memories |
-| `get_context` | Assemble a context block for LLM prompting |
+| `get_context` | Get a context block for LLM prompting |
 | `set_instruction` | Store a persistent rule all agents will follow |
 | `list_instructions` | List all active instructions for a volume |
+| `list_documents` | List uploaded documents |
 
 ## Resources
 

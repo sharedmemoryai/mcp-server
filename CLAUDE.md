@@ -17,9 +17,9 @@ Store these automatically, without being asked:
 
 Check memory before:
 
-- Starting a new task → `recall` with the task description to find relevant context
-- Making architectural decisions → `recall` for past decisions and conventions
-- Debugging → `recall` for similar past bugs and solutions
+- Starting a new task → `query` with the task description to find relevant context
+- Making architectural decisions → `query` for past decisions and conventions
+- Debugging → `query` for similar past bugs and solutions
 - Working with a specific file/module → `get_entity` for that component
 - Starting a new session → `get_context` to load relevant project knowledge
 
@@ -28,15 +28,17 @@ Check memory before:
 | Tool | When to Use |
 |------|-------------|
 | `remember` | Store a fact, decision, preference, or learning |
-| `recall` | Search for relevant memories by meaning |
+| `query` | Search for relevant memories by meaning |
 | `batch_remember` | Store multiple related facts at once (up to 100) |
 | `get_entity` | Get everything known about a person, project, file, or concept |
 | `search_entities` | Find entities by name |
-| `explore_graph` | See the full knowledge graph for a volume |
-| `get_context` | Assemble a formatted context block for the current task |
+| `get_graph` | See the full knowledge graph for a volume |
+| `get_context` | Get a formatted context block for the current task |
 | `get_profile` | Get the auto-generated user profile |
 | `get_memory` | Retrieve a specific memory by ID |
-| `manage_memory` | Update or delete a memory |
+| `delete_memory` | Delete a memory |
+| `update_memory` | Update a memory |
+| `feedback` | Rate a memory's relevance (positive/negative) |
 | `list_volumes` | List available memory volumes |
 | `list_documents` | List uploaded documents |
 

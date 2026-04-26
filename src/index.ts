@@ -84,10 +84,10 @@ server.tool(
   }
 );
 
-// ─── recall ─────────────────────────────────────────────
+// ─── query ───────────────────────────────────────────
 server.tool(
-  "recall",
-  "Use this to retrieve context BEFORE answering. Searches SharedMemory for relevant memories using semantic similarity. Returns matching memories from vector search + related knowledge graph facts.",
+  "query",
+  "Retrieve context BEFORE answering. Searches SharedMemory for relevant memories using semantic similarity. Returns matching memories from vector search + related knowledge graph facts.",
   {
     query: z.string().describe("What to search for in memory"),
     volume_id: z.string().optional().describe("Volume ID. Uses default if not set."),
@@ -197,12 +197,12 @@ server.tool(
   "get_entity",
   "Get everything SharedMemory knows about a specific entity (person, project, concept, etc). Returns the summary, all facts, and relationships.",
   {
-    entity_name: z.string().describe("Name of the entity to look up (e.g., 'John Smith', 'React', 'Project Alpha')"),
+    name: z.string().describe("Name of the entity to look up (e.g., 'John Smith', 'React', 'Project Alpha')"),
     volume_id: z.string().optional().describe("Volume ID. Uses default if not set."),
   },
-  async ({ entity_name, volume_id }) => {
+  async ({ name, volume_id }) => {
     const vol = resolveVolume(volume_id);
-    const entity = await client.getEntity(vol, entity_name);
+    const entity = await client.getEntity(vol, name);
 
     let text = `## ${entity.name}\n`;
     text += `**Type:** ${entity.type}\n\n`;
@@ -264,9 +264,9 @@ server.tool(
   }
 );
 
-// ─── explore_graph ──────────────────────────────────────
+// ─── get_graph ──────────────────────────────────────────
 server.tool(
-  "explore_graph",
+  "get_graph",
   "Get an overview of the entire knowledge graph for a volume. Shows all entities and their relationships — like a map of everything SharedMemory knows.",
   {
     volume_id: z.string().optional().describe("Volume ID. Uses default if not set."),
@@ -341,30 +341,52 @@ server.tool(
   }
 );
 
-// ─── manage_memory ──────────────────────────────────────
+// ─── delete_memory ──────────────────────────────────────
 server.tool(
-  "manage_memory",
-  "Delete or update an existing memory by ID.",
+  "delete_memory",
+  "Delete an existing memory by ID.",
   {
-    action: z.enum(["delete", "update"]).describe("Action to take on the memory"),
-    memory_id: z.string().describe("The UUID of the memory to manage"),
+    memory_id: z.string().describe("The UUID of the memory to delete"),
     volume_id: z.string().optional().describe("Volume (project) ID. Uses default if not set."),
-    content: z.string().optional().describe("New content (only for update action)"),
   },
-  async ({ action, memory_id, volume_id, content }) => {
+  async ({ memory_id, volume_id }) => {
     const vol = resolveVolume(volume_id);
+    await client.deleteMemory(memory_id, vol);
+    return { content: [{ type: "text" as const, text: `🗑️ Memory ${memory_id} deleted.` }] };
+  }
+);
 
-    if (action === "delete") {
-      await client.deleteMemory(memory_id, vol);
-      return { content: [{ type: "text" as const, text: `🗑️ Memory ${memory_id} deleted.` }] };
-    }
+// ─── update_memory ──────────────────────────────────────
+server.tool(
+  "update_memory",
+  "Update the content of an existing memory by ID.",
+  {
+    memory_id: z.string().describe("The UUID of the memory to update"),
+    content: z.string().describe("New content for the memory"),
+    volume_id: z.string().optional().describe("Volume (project) ID. Uses default if not set."),
+  },
+  async ({ memory_id, content, volume_id }) => {
+    const vol = resolveVolume(volume_id);
+    await client.request("PATCH", `/memory/${memory_id}`, { volume_id: vol, content });
+    return { content: [{ type: "text" as const, text: `✏️ Memory ${memory_id} updated.\n**New content:** ${content}` }] };
+  }
+);
 
-    if (action === "update" && content) {
-      const result = await client.request("PATCH", `/memory/${memory_id}`, { volume_id: vol, content });
-      return { content: [{ type: "text" as const, text: `✏️ Memory ${memory_id} updated.\n**New content:** ${content}` }] };
-    }
-
-    return { content: [{ type: "text" as const, text: "Invalid action or missing content for update." }] };
+// ─── feedback ───────────────────────────────────────────
+server.tool(
+  "feedback",
+  "Submit feedback on a memory's relevance. Helps improve future recall quality.",
+  {
+    memory_id: z.string().describe("The UUID of the memory to rate"),
+    feedback: z.enum(["positive", "negative"]).describe("Whether the memory was relevant/helpful"),
+    volume_id: z.string().optional().describe("Volume ID. Uses default if not set."),
+    reason: z.string().optional().describe("Optional reason for the feedback"),
+  },
+  async ({ memory_id, feedback, volume_id, reason }) => {
+    const vol = resolveVolume(volume_id);
+    await client.feedback(memory_id, vol, feedback, reason);
+    const emoji = feedback === "positive" ? "👍" : "👎";
+    return { content: [{ type: "text" as const, text: `${emoji} Feedback recorded for memory ${memory_id}.` }] };
   }
 );
 
@@ -618,7 +640,7 @@ server.tool(
       const id = r.payload?.memory_id || r.memory_id || "";
       text += `${i + 1}. ${content}\n   _ID: \`${id}\`_\n\n`;
     });
-    text += `_Use \`manage_memory\` to delete an instruction by ID._`;
+    text += `_Use \`delete_memory\` to delete an instruction by ID._`;
 
     return { content: [{ type: "text" as const, text }] };
   }
