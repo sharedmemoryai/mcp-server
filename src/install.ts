@@ -12,6 +12,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import * as readline from "node:readline";
+import { execFileSync } from "node:child_process";
 
 // ═══════════════════════════════════════════════════════
 //  ANSI TERMINAL UI — zero deps
@@ -150,6 +151,8 @@ interface ClientTarget {
   icon: string;
   configPaths: () => string[];
   serversKey: "mcpServers" | "servers";
+  /** Path to the editor's instruction/rules file (relative to project root). null = no file-based instructions. */
+  instructionFile: (() => string) | null;
 }
 
 const home = os.homedir();
@@ -162,6 +165,7 @@ const CLIENTS: Record<string, ClientTarget> = {
       return [path.join(home, ".claude.json")];
     },
     serversKey: "mcpServers",
+    instructionFile: () => path.join(process.cwd(), "CLAUDE.md"),
   },
   claude: {
     name: "Claude Desktop",
@@ -174,6 +178,7 @@ const CLIENTS: Record<string, ClientTarget> = {
       return [path.join(process.env.XDG_CONFIG_HOME || path.join(home, ".config"), "Claude", "claude_desktop_config.json")];
     },
     serversKey: "mcpServers",
+    instructionFile: null,
   },
   cursor: {
     name: "Cursor",
@@ -183,6 +188,7 @@ const CLIENTS: Record<string, ClientTarget> = {
       return [local, path.join(home, ".cursor", "mcp.json")];
     },
     serversKey: "mcpServers",
+    instructionFile: () => path.join(process.cwd(), ".cursorrules"),
   },
   vscode: {
     name: "VS Code",
@@ -191,6 +197,7 @@ const CLIENTS: Record<string, ClientTarget> = {
       return [path.join(process.cwd(), ".vscode", "mcp.json")];
     },
     serversKey: "servers",
+    instructionFile: () => path.join(process.cwd(), ".github", "copilot-instructions.md"),
   },
   windsurf: {
     name: "Windsurf",
@@ -199,6 +206,7 @@ const CLIENTS: Record<string, ClientTarget> = {
       return [path.join(home, ".codeium", "windsurf", "mcp_config.json")];
     },
     serversKey: "mcpServers",
+    instructionFile: () => path.join(process.cwd(), ".windsurfrules"),
   },
 };
 
@@ -240,20 +248,145 @@ function readJsonFile(filePath: string): Record<string, any> {
   }
 }
 
+function resolveFullPath(bin: string): string {
+  try {
+    const cmd = process.platform === "win32" ? "where" : "which";
+    return execFileSync(cmd, [bin], { encoding: "utf-8" }).trim().split("\n")[0];
+  } catch {
+    return bin;
+  }
+}
+
 function buildServerEntry(apiKey: string, volumeId: string, apiUrl: string) {
-  return {
-    command: "npx",
-    args: ["-y", "@sharedmemory/mcp-server"],
-    env: {
-      SHAREDMEMORY_API_KEY: apiKey,
-      SHAREDMEMORY_API_URL: apiUrl,
-      SHAREDMEMORY_VOLUME_ID: volumeId,
-    },
+  const npxPath = resolveFullPath("npx");
+  const env: Record<string, string> = {
+    SHAREDMEMORY_API_KEY: apiKey,
+    SHAREDMEMORY_API_URL: apiUrl,
+    SHAREDMEMORY_VOLUME_ID: volumeId,
   };
+
+  // Propagate PATH so editors that don't inherit the user's shell
+  // (VS Code, Cursor, etc.) can still find node/npx and dependencies.
+  if (process.env.PATH) {
+    env.PATH = process.env.PATH;
+  }
+
+  return { command: npxPath, args: ["-y", "@sharedmemory/mcp-server"], env };
+}
+
+// ── Post-install verification ───────────────────────────
+function verifyServerStarts(entry: { command: string; args: string[]; env: Record<string, string> }): { ok: boolean; error?: string } {
+  try {
+    // Spawn the server with --help-like no-op: just import and exit.
+    // We send an empty JSON-RPC to stdin and expect it to start without crash.
+    const result = execFileSync(entry.command, [...entry.args, "--version"], {
+      env: { ...process.env, ...entry.env },
+      timeout: 15_000,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return { ok: true };
+  } catch (err: any) {
+    // Exit code 1 is fine — means the server ran but there's no --version flag.
+    // ENOENT means the binary wasn't found.
+    if (err.code === "ENOENT") {
+      return { ok: false, error: `Cannot find ${entry.command}. Is Node.js installed and in your PATH?` };
+    }
+    // Any other error with output likely means it started fine but didn't understand --version
+    return { ok: true };
+  }
 }
 
 function shortenPath(p: string): string {
   return p.replace(home, "~");
+}
+
+// ═══════════════════════════════════════════════════════
+//  AGENT INSTRUCTIONS PROMPT
+// ═══════════════════════════════════════════════════════
+
+const SHAREDMEMORY_INSTRUCTIONS = `# SharedMemory — Agent Instructions
+
+You have access to **SharedMemory**, a persistent memory layer that survives across conversations.
+Use it proactively — don't wait for the user to ask you to remember or recall.
+
+## When to RECALL (query)
+
+At the **start of every conversation**, before answering:
+
+1. Call \`query\` with a summary of what the user is asking about
+2. If the user mentions a person, project, or concept — call \`get_entity\` to load full context
+3. Use retrieved memories to ground your answer — cite them when relevant
+
+## When to REMEMBER
+
+After every meaningful interaction, store:
+
+- **Decisions** — "We chose Postgres over MongoDB because…"
+- **Preferences** — "User prefers Tailwind over styled-components"
+- **Facts** — "The API is deployed on GCP region us-central1"
+- **Architecture** — "Auth uses JWT with refresh token rotation"
+- **Bugs & fixes** — "Fixed CORS by adding origin to allowed list"
+- **Conventions** — "All API routes use kebab-case"
+- **Context** — "Project deadline is March 15"
+- **Relationships** — "Alice is the tech lead, Bob handles DevOps"
+
+Use \`batch_remember\` when you have multiple facts to store (more efficient).
+
+## Memory types
+
+Choose the right type when storing: \`factual\`, \`preference\`, \`event\`, \`relationship\`, \`technical\`, \`episodic\`, \`procedural\`, \`instruction\`.
+
+Use \`instruction\` for rules and conventions that should always be enforced.
+
+## Key principles
+
+- **Be proactive**: Don't ask "should I remember this?" — just remember it
+- **Be specific**: "User prefers tabs with width 2" > "User has coding preferences"
+- **Recall first**: Always check memory before answering questions about the project
+- **Stay current**: If something changed, store the update — the pipeline handles conflicts
+- **Use entities**: When discussing people/projects/tools, use \`get_entity\` for full context
+`;
+
+/**
+ * Marker used to detect whether instructions were already appended by a
+ * previous install run. Checked with a simple `includes()` so we can
+ * safely append to files that already have user content.
+ */
+const INSTRUCTIONS_MARKER = "# SharedMemory — Agent Instructions";
+
+function writeInstructionFiles(
+  targetKeys: string[],
+): { written: string[]; skipped: string[] } {
+  const written: string[] = [];
+  const skipped: string[] = [];
+
+  for (const key of targetKeys) {
+    const target = CLIENTS[key];
+    if (!target?.instructionFile) continue;
+
+    const filePath = target.instructionFile();
+    const dir = path.dirname(filePath);
+
+    // If file already has our instructions, skip
+    if (fs.existsSync(filePath)) {
+      const existing = fs.readFileSync(filePath, "utf-8");
+      if (existing.includes(INSTRUCTIONS_MARKER)) {
+        skipped.push(key);
+        continue;
+      }
+      // Append to existing file
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.appendFileSync(filePath, "\n\n" + SHAREDMEMORY_INSTRUCTIONS, "utf-8");
+    } else {
+      // Create new file
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(filePath, SHAREDMEMORY_INSTRUCTIONS, "utf-8");
+    }
+    written.push(key);
+  }
+
+  return { written, skipped };
 }
 
 // ── Auto-detect installed clients ───────────────────────
@@ -460,15 +593,62 @@ export async function runInstall(argv: string[]): Promise<void> {
     configured++;
   }
 
+  // ── Step 5: Agent Instructions ──────────────────────
+  if (configured > 0) {
+    step("Agent Instructions");
+
+    const instrSpinner = new Spinner("Writing agent instructions…");
+    instrSpinner.start();
+    await sleep(IS_TTY ? 300 : 0);
+
+    const { written, skipped: instrSkipped } = writeInstructionFiles(targetKeys);
+
+    if (written.length > 0) {
+      instrSpinner.succeed(`${b}${written.length}${r} instruction file${written.length > 1 ? "s" : ""} created`);
+      for (const key of written) {
+        const target = CLIENTS[key];
+        const filePath = target.instructionFile!();
+        log(`    ${target.icon} ${target.name}  ${d}${GRAY}→ ${shortenPath(filePath)}${r}`);
+      }
+    } else if (instrSkipped.length > 0) {
+      instrSpinner.warn("Instructions already present — skipped");
+    } else {
+      instrSpinner.succeed(`${d}${GRAY}No file-based instruction clients selected${r}`);
+    }
+    if (instrSkipped.length > 0 && written.length > 0) {
+      log(`    ${d}${GRAY}(${instrSkipped.length} already had instructions)${r}`);
+    }
+  }
+
+  // ── Step 6: Verify ──────────────────────────────────
+  if (configured > 0) {
+    step("Verify");
+    const verifySpinner = new Spinner("Checking server can start…");
+    verifySpinner.start();
+    const check = verifyServerStarts(entry);
+    if (check.ok) {
+      verifySpinner.succeed(`Server binary is reachable  ${d}${GRAY}(${entry.command})${r}`);
+    } else {
+      verifySpinner.fail(`Server failed to start`);
+      log(`    ${RED}${check.error}${r}`);
+      log(`    ${d}${GRAY}The config was written, but the server may not start in your editor.${r}`);
+      log(`    ${d}${GRAY}Make sure Node.js ≥ 18 is installed and "npx" is on your PATH.${r}`);
+    }
+  }
+
   // ── Summary ─────────────────────────────────────────
   log("");
 
   if (configured > 0) {
+    const npxNote = entry.command !== "npx"
+      ? `  ${d}${GRAY}npx resolved to${r} ${CYAN}${entry.command}${r}`
+      : "";
     const summaryLines = [
       "",
       `  ${GREEN}${b}✓ SharedMemory is ready${r}`,
       "",
       `  ${WHITE}${configured} client${configured > 1 ? "s" : ""} configured${r}${skipped > 0 ? `  ${d}${GRAY}(${skipped} skipped)${r}` : ""}`,
+      ...(npxNote ? [npxNote] : []),
       `  ${d}${GRAY}Restart your editor to activate the MCP server.${r}`,
       "",
       `  ${d}${GRAY}Docs${r}  ${CYAN}https://docs.sharedmemory.ai/sdks/mcp-server${r}`,

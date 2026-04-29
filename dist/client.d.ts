@@ -26,15 +26,6 @@ export declare class SharedMemoryClient {
         date_from?: string;
         date_to?: string;
     }): Promise<any>;
-    chatMemory(volumeId: string, query: string, limit?: number, scope?: {
-        user_id?: string;
-        session_id?: string;
-        agent_id?: string;
-        app_id?: string;
-        rerank?: boolean;
-        date_from?: string;
-        date_to?: string;
-    }): Promise<any>;
     deleteMemory(memoryId: string, volumeId: string): Promise<any>;
     getEntity(volumeId: string, entityName: string): Promise<any>;
     searchEntities(volumeId: string, query: string, limit?: number): Promise<any[]>;
@@ -52,5 +43,6 @@ export declare class SharedMemoryClient {
     getProfile(volumeId: string, userId?: string, refresh?: boolean): Promise<any>;
     getContext(volumeId: string, userId?: string, maxTokens?: number): Promise<any>;
     listDocuments(volumeId: string): Promise<any[]>;
+    feedback(memoryId: string, volumeId: string, feedback: string, reason?: string): Promise<any>;
     listInstructions(volumeId: string): Promise<any[]>;
 }

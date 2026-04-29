@@ -100,28 +100,6 @@ class SharedMemoryClient {
             body.date_to = scope.date_to;
         return this.request("POST", "/memory/query", body);
     }
-    async chatMemory(volumeId, query, limit, scope) {
-        const body = {
-            volume_id: volumeId,
-            query,
-            limit: limit || 10,
-        };
-        if (scope?.user_id)
-            body.user_id = scope.user_id;
-        if (scope?.session_id)
-            body.session_id = scope.session_id;
-        if (scope?.agent_id)
-            body.agent_id = scope.agent_id;
-        if (scope?.app_id)
-            body.app_id = scope.app_id;
-        if (scope?.rerank)
-            body.rerank = true;
-        if (scope?.date_from)
-            body.date_from = scope.date_from;
-        if (scope?.date_to)
-            body.date_to = scope.date_to;
-        return this.request("POST", "/memory/chat", body);
-    }
     async deleteMemory(memoryId, volumeId) {
         return this.requestDelete(`/memory/${memoryId}`, { volume_id: volumeId });
     }
@@ -185,6 +163,17 @@ class SharedMemoryClient {
     // ─── Documents ────────────────────────────────────────
     async listDocuments(volumeId) {
         return this.request("GET", `/documents/${volumeId}`);
+    }
+    // ─── Feedback ─────────────────────────────────────────
+    async feedback(memoryId, volumeId, feedback, reason) {
+        const body = {
+            memory_id: memoryId,
+            volume_id: volumeId,
+            feedback,
+        };
+        if (reason)
+            body.reason = reason;
+        return this.request("POST", "/memory/feedback", body);
     }
     // ─── Instructions ─────────────────────────────────────
     async listInstructions(volumeId) {

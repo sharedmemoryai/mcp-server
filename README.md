@@ -153,7 +153,6 @@ Or create `.mcp.json` in your project root to share with your team:
 |------|-------------|
 | `remember` | Store a fact or note |
 | `query` | Retrieve context BEFORE answering — semantic search over memories |
-| `chat` | Get a pre-built LLM answer grounded in memories (use when user asks for memory summary) |
 | `get_entity` | Get entity details and relationships |
 | `search_entities` | Search entities by name |
 | `get_graph` | Knowledge graph overview |

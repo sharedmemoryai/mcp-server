@@ -148,50 +148,6 @@ server.tool(
   }
 );
 
-// ─── chat ───────────────────────────────────────────────
-server.tool(
-  "chat",
-  "Use this only if user explicitly asks for memory summary. Returns a pre-built LLM answer grounded in SharedMemory — includes the answer text, sources, and citations.",
-  {
-    query: z.string().describe("The question to answer using stored memories"),
-    volume_id: z.string().optional().describe("Volume ID. Uses default if not set."),
-    limit: z.number().min(1).max(50).optional().describe("Max memories to consider. Default: 10"),
-    date_from: z.string().optional().describe("Filter memories with event_date >= this ISO date"),
-    date_to: z.string().optional().describe("Filter memories with event_date <= this ISO date"),
-    user_id: z.string().optional().describe("Filter results to a specific user"),
-    session_id: z.string().optional().describe("Filter results to a specific session"),
-    agent_id: z.string().optional().describe("Filter results from a specific agent"),
-    app_id: z.string().optional().describe("Filter results from a specific app"),
-  },
-  async ({ query, volume_id, limit, date_from, date_to, user_id, session_id, agent_id, app_id }) => {
-    const vol = resolveVolume(volume_id);
-    const result = await client.chatMemory(vol, query, limit, { user_id, session_id, agent_id, app_id, date_from, date_to });
-
-    let text = "";
-
-    if (result.answer) {
-      text += `${result.answer}\n\n`;
-    }
-
-    if (result.sources?.length > 0) {
-      text += `---\n**Sources (${result.sources.length}):**\n`;
-      result.sources.forEach((s: any, i: number) => {
-        text += `${i + 1}. ${s.content?.substring(0, 120)}${s.content?.length > 120 ? "…" : ""} _(score: ${s.score?.toFixed(2)})_\n`;
-      });
-    }
-
-    if (result.citations?.length > 0) {
-      text += `\n**Citations:** ${result.citations.length} references\n`;
-    }
-
-    if (!result.answer && !result.sources?.length) {
-      text = `_No matching memories found for "${query}"._`;
-    }
-
-    return { content: [{ type: "text" as const, text }] };
-  }
-);
-
 // ─── get_entity ─────────────────────────────────────────
 server.tool(
   "get_entity",
