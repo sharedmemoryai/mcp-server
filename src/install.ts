@@ -300,8 +300,8 @@ function openBrowser(url: string): void {
 
 async function browserAuth(apiUrl: string): Promise<{ apiKey: string; volumeId: string; email: string } | null> {
   const code = crypto.randomBytes(24).toString("hex");
-  const baseUrl = apiUrl.replace("/api", "").replace(/\/$/, "");
-  const appUrl = baseUrl.replace("api.", "app.");
+  // Derive app URL from API URL: https://api.sharedmemory.ai → https://app.sharedmemory.ai
+  const appUrl = apiUrl.replace("://api.", "://app.").replace(/\/+$/, "");
 
   // Register the device code
   try {
