@@ -12,7 +12,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import * as readline from "node:readline";
-import { execFileSync } from "node:child_process";
+import * as https from "node:https";
+import * as http from "node:http";
+import { execFileSync, exec } from "node:child_process";
+import * as crypto from "node:crypto";
 
 // ═══════════════════════════════════════════════════════
 //  ANSI TERMINAL UI — zero deps
@@ -257,6 +260,101 @@ function resolveFullPath(bin: string): string {
   }
 }
 
+// ── HTTP helpers for device-code auth flow ──────────────
+function httpRequest(url: string, opts: { method?: string; body?: string } = {}): Promise<{ status: number; data: any }> {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const mod = parsedUrl.protocol === "https:" ? https : http;
+    const reqOpts = {
+      hostname: parsedUrl.hostname,
+      port: parsedUrl.port,
+      path: parsedUrl.pathname + parsedUrl.search,
+      method: opts.method || "GET",
+      headers: {
+        ...(opts.body ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(opts.body) } : {}),
+      },
+    };
+    const req = mod.request(reqOpts, (res) => {
+      let body = "";
+      res.on("data", (chunk) => (body += chunk));
+      res.on("end", () => {
+        try {
+          resolve({ status: res.statusCode || 0, data: JSON.parse(body) });
+        } catch {
+          resolve({ status: res.statusCode || 0, data: body });
+        }
+      });
+    });
+    req.on("error", reject);
+    if (opts.body) req.write(opts.body);
+    req.end();
+  });
+}
+
+function openBrowser(url: string): void {
+  const cmd = process.platform === "darwin" ? "open"
+    : process.platform === "win32" ? "start"
+    : "xdg-open";
+  exec(`${cmd} "${url}"`);
+}
+
+async function browserAuth(apiUrl: string): Promise<{ apiKey: string; volumeId: string; email: string } | null> {
+  const code = crypto.randomBytes(24).toString("hex");
+  const baseUrl = apiUrl.replace("/api", "").replace(/\/$/, "");
+  const appUrl = baseUrl.replace("api.", "app.");
+
+  // Register the device code
+  try {
+    const regRes = await httpRequest(`${apiUrl}/auth/cli-device-code`, {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+    if (regRes.status !== 200 || !regRes.data?.ok) {
+      return null;
+    }
+  } catch {
+    return null;
+  }
+
+  // Open browser
+  const authUrl = `${appUrl}/cli-auth?code=${code}`;
+  log(`  ${GREEN}✓${r} Browser opened`);
+  log(`  ${d}${GRAY}→ Complete sign-in to continue${r}`);
+  log("");
+  log(`  ${d}${GRAY}If browser didn't open:${r}  ${CYAN}${authUrl}${r}`);
+  log("");
+  openBrowser(authUrl);
+
+  // Poll for token with staged UX
+  const spinner = new Spinner(`Waiting for sign-in…`);
+  spinner.start();
+
+  const pollInterval = 2000;
+  const maxWait = 5 * 60 * 1000; // 5 minutes
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < maxWait) {
+    await sleep(pollInterval);
+    try {
+      const pollRes = await httpRequest(`${apiUrl}/auth/cli-poll?code=${code}`);
+      if (pollRes.status === 200 && pollRes.data?.status === "complete") {
+        spinner.succeed(`Connected as ${CYAN}${b}${pollRes.data.email}${r}`);
+        return {
+          apiKey: pollRes.data.token,
+          volumeId: pollRes.data.volumeId || "",
+          email: pollRes.data.email || "",
+        };
+      }
+      // Still pending — continue polling
+    } catch {
+      // Network blip — retry
+    }
+  }
+
+  spinner.fail("Timed out waiting for sign-in (5 min)");
+  return null;
+}
+
 function buildServerEntry(apiKey: string, volumeId: string, apiUrl: string) {
   const npxPath = resolveFullPath("npx");
   const env: Record<string, string> = {
@@ -443,7 +541,7 @@ export async function runInstall(argv: string[]): Promise<void> {
   ], { borderColor: BLUE, padding: 2 }));
   log("");
 
-  // ── Step 1: API Key ─────────────────────────────────
+  // ── Step 1: Authentication ──────────────────────────
   step("Authentication");
 
   if (!apiKey) apiKey = process.env.SHAREDMEMORY_API_KEY || "";
@@ -452,17 +550,20 @@ export async function runInstall(argv: string[]): Promise<void> {
     const masked = apiKey.length > 16 ? apiKey.slice(0, 12) + "•".repeat(8) + apiKey.slice(-4) : apiKey;
     log(`  ${GREEN}✓${r} API key: ${d}${masked}${r}`);
   } else {
-    log(`  ${d}${GRAY}Get your key at ${CYAN}https://app.sharedmemory.ai${r} ${d}${GRAY}→ API Keys${r}`);
-    log("");
-    apiKey = await ask(`  ${CYAN}${b}?${r} ${WHITE}API Key ${d}(sm_live_...)${r}: `);
-    if (!apiKey) {
+    // Default: browser auth (zero friction, no menu)
+    const result = await browserAuth(apiUrl);
+    if (!result) {
       log("");
-      log(`  ${RED}✗${r} API key is required.`);
-      log(`  ${d}${GRAY}Get one from ${CYAN}https://app.sharedmemory.ai${r} ${d}${GRAY}→ API Keys${r}`);
+      log(`  ${RED}✗${r} Browser authentication failed.`);
+      log(`  ${d}${GRAY}Try again, or pass a key directly:${r}`);
+      log(`  ${CYAN}npx @sharedmemory/mcp-server install --api-key sm_live_...${r}`);
       log("");
       process.exit(1);
     }
-    log(`  ${GREEN}✓${r} Key accepted`);
+    apiKey = result.apiKey;
+    if (!volumeId && result.volumeId) {
+      volumeId = result.volumeId;
+    }
   }
 
   // ── Step 2: Volume ──────────────────────────────────
@@ -471,14 +572,9 @@ export async function runInstall(argv: string[]): Promise<void> {
   if (!volumeId) volumeId = process.env.SHAREDMEMORY_VOLUME_ID || "";
 
   if (volumeId) {
-    log(`  ${GREEN}✓${r} Volume: ${d}${volumeId}${r}`);
+    log(`  ${GREEN}✓${r} Project linked: ${d}${volumeId}${r}`);
   } else {
-    volumeId = await ask(`  ${CYAN}${b}?${r} ${WHITE}Volume ID ${d}(optional, Enter to skip)${r}: `);
-    if (volumeId) {
-      log(`  ${GREEN}✓${r} Volume: ${d}${volumeId}${r}`);
-    } else {
-      log(`  ${d}${GRAY}─ Skipped (can be set per-request)${r}`);
-    }
+    log(`  ${d}${GRAY}─ No project specified (using default — can be changed later)${r}`);
   }
 
   // ── Step 3: Client selection ────────────────────────
@@ -640,19 +736,20 @@ export async function runInstall(argv: string[]): Promise<void> {
   log("");
 
   if (configured > 0) {
-    const npxNote = entry.command !== "npx"
-      ? `  ${d}${GRAY}npx resolved to${r} ${CYAN}${entry.command}${r}`
-      : "";
     const summaryLines = [
       "",
-      `  ${GREEN}${b}✓ SharedMemory is ready${r}`,
+      `  ${GREEN}${b}✓ Memory enabled for your AI agents${r}`,
       "",
-      `  ${WHITE}${configured} client${configured > 1 ? "s" : ""} configured${r}${skipped > 0 ? `  ${d}${GRAY}(${skipped} skipped)${r}` : ""}`,
-      ...(npxNote ? [npxNote] : []),
-      `  ${d}${GRAY}Restart your editor to activate the MCP server.${r}`,
+      `  ${WHITE}${configured} editor${configured > 1 ? "s" : ""} configured${r}${skipped > 0 ? `  ${d}${GRAY}(${skipped} skipped)${r}` : ""}`,
+      `  ${d}${GRAY}Restart your editor to activate.${r}`,
       "",
-      `  ${d}${GRAY}Docs${r}  ${CYAN}https://docs.sharedmemory.ai/sdks/mcp-server${r}`,
+      `  ${b}${WHITE}Try it now — open your editor and ask:${r}`,
+      `  ${CYAN}"Remember that we use TypeScript with strict mode"${r}`,
+      `  ${d}${GRAY}or${r}`,
+      `  ${CYAN}"What do you know about this project?"${r}`,
+      "",
       `  ${d}${GRAY}Dashboard${r}  ${CYAN}https://app.sharedmemory.ai${r}`,
+      `  ${d}${GRAY}Docs${r}       ${CYAN}https://docs.sharedmemory.ai${r}`,
       "",
     ];
     log(box(summaryLines, { borderColor: GREEN, padding: 1 }));
